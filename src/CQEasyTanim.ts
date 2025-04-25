@@ -3,8 +3,9 @@
  * 本扩展能够轻松实现时间轴动画。内置动画编辑器，完美兼容turbowarp。
  * 
  * 作者：苍穹
- * 感谢 arkos、白猫、simple 等人，他们给我提供了许多帮助。
- * 本扩展从 Animator 扩展中找来了一些参考资料和插值函数，非常感谢。
+ * 感谢 arkos、白猫、simple、允某、酷可mc 等人，他们给我提供了许多帮助，在此不一一列举。（太多了列不出来）
+ * arkos 真的给我提供了很多技术上的帮助，教我怎么写扩展，我爱他❤️
+ * 一些缓动函数抄自https://blog.51cto.com/u_15057855/4403832 （从Animator扩展那里翻到的链接，非常感谢！）
  */
 
 (function(Scratch) {
@@ -20,8 +21,158 @@ function Warn(...data: any[]) {
     }
 }
 
+if (!Scratch.extensions.unsandboxed) {
+    throw new Error('Easy Tanim must run unsandboxed!');
+}
+
 const vm = Scratch.vm;
 const isGandi: boolean = vm.runtime.gandi ? true : false;
+
+const theExtID = "cqeasytanim"
+
+const enum Strings {
+    extName = "CQEasyTanim_extName",
+
+    bGetTanimValue = "CQEasyTanim_bGetTanimValue",
+    bSetContext = "CQEasyTanim_bSetContext",
+    bGetContextValue = "CQEasyTanim_bGetContextValue",
+    bCreateSnapshot = "CQEasyTanim_bCreateSnapshot",
+    bTransitSnapshot = "CQEasyTanim_bTransitSnapshot",
+    bGetSnapshotValue = "CQEasyTanim_bGetSnapshotValue",
+    bSetContextBySnapshot = "CQEasyTanim_bSetContextBySnapshot",
+    bDeleteSnapshot = "CQEasyTanim_bDeleteSnapshot",
+    bDeleteAllSnapshot = "CQEasyTanim_bDeleteAllSnapshot",
+    bGetTanimInfo = "CQEasyTanim_bGetTanimInfo",
+    bGetTanimEditorInfo = "CQEasyTanim_bGetTanimEditorInfo",
+
+    mLoopMode_loop = "mLoopMode_loop",
+    mLoopMode_once = "mLoopMode_once",
+    mLoopMode_loopYoyo = "mLoopMode_loopYoyo",
+    mLoopMode_onceYoyo = "mLoopMode_onceYoyo",
+
+    mTimeUnit_second = "mTimeUnit_second",
+    mTimeUnit_frame = "mTimeUnit_frame",
+
+    mTanimValueType_px = "mTanimValueType_px",
+    mTanimValueType_py = "mTanimValueType_py",
+    mTanimValueType_s = "mTanimValueType_s",
+    mTanimValueType_sx = "mTanimValueType_sx",
+    mTanimValueType_sy = "mTanimValueType_sy",
+    mTanimValueType_sq = "mTanimValueType_sq",
+    mTanimValueType_sqx = "mTanimValueType_sqx",
+    mTanimValueType_sqy = "mTanimValueType_sqy",
+    mTanimValueType_d = "mTanimValueType_d",
+    mTanimValueType_cos = "mTanimValueType_cos",
+
+    mTanimInfoType_lengthSec = "mTanimInfoType_lengthSec",
+    mTanimInfoType_length = "mTanimInfoType_length",
+    mTanimInfoType_fps = "mTanimInfoType_fps",
+
+    mTanimEditorInfoType_time = "mTanimEditorInfoType_time",
+    mTanimEditorInfoType_anim = "mTanimEditorInfoType_anim",
+    mTanimEditorInfoType_sprite = "mTanimEditorInfoType_sprite",
+    mTanimEditorInfoType_cosPrefix = "mTanimEditorInfoType_cosPrefix",
+    mTanimEditorInfoType_cosName = "mTanimEditorInfoType_cosName",
+    mTanimEditorInfoType_cosSuffix = "mTanimEditorInfoType_cosSuffix",
+
+    labelContext = "labelContext",
+    labelSnapshot = "labelSnapshot",
+    labelUtils = "labelUtils",
+
+    buttonDoc = "buttonDoc",
+    buttonEditor = "buttonEditor",
+
+    noTanimPleaseCreate = "CQEasyTanim_noTanimPleaseCreate",
+}
+
+const enum Opcode {
+    BGetTanimValue = "BGetTanimValue",
+    BSetContext = "BSetContext",
+    BGetContextValue = "BGetContextValue",
+    BCreateSnapshot = "BCreateSnapshot",
+    BTransitSnapshot = "BTransitSnapshot",
+    BGetSnapshotValue = "BGetSnapshotValue",
+    BSetContextBySnapshot = "BSetContextBySnapshot",
+    BDeleteSnapshot = "BDeleteSnapshot",
+    BDeleteAllSnapshot = "BDeleteAllSnapshot",
+    BGetTanimInfo = "BGetTanimInfo",
+    BGetTanimEditorInfo = "BGetTanimEditorInfo",
+}
+
+const enum MenuName {
+    MTanimName = "MTanimName",
+    MLoopMode = "MLoopMode",
+    MTimeUnit = "MTimeUnit",
+    MTanimValueType = "MTanimValueType",
+    MTanimInfoType = "MTanimInfoType",
+    MTanimEditorInfoType = "MTanimEditorInfoType",
+}
+
+const translates = {
+    "zh-cn": {
+        [Strings.extName]: "时间轴动画",
+
+        [Strings.bGetTanimValue]: "动画 [tanimName] [loopMode] 第 [time] [timeUnit] 的 [tanimValueType]",
+
+        [Strings.bSetContext]: "将语境设为 [tanimName] [loopMode] 的第 [time] [timeUnit]",
+        [Strings.bGetContextValue]: "语境的 [tanimValueType]",
+
+        [Strings.bCreateSnapshot]: "为动画 [tanimName] [loopMode] 的第 [time] [timeUnit] 创建快照",
+        [Strings.bTransitSnapshot]: "从快照 [snapshotIndexA] 到 [snapshotIndexB] 过渡，创建 [transitT] 处的快照",
+        [Strings.bGetSnapshotValue]: "快照 [snapshotIndex] 的 [tanimValueType]",
+        [Strings.bSetContextBySnapshot]: "将语境设为快照 [snapshotIndex]",
+        [Strings.bDeleteSnapshot]: "删除快照 [snapshotIndex]",
+        [Strings.bDeleteAllSnapshot]: "删除所有快照",
+
+        [Strings.bGetTanimInfo]: "动画 [tanimName] 的 [tanimInfoType]",
+        [Strings.bGetTanimEditorInfo]: "动画编辑器的 [tanimEditorInfoType]",
+
+        [Strings.mLoopMode_loop]: "循环播放",
+        [Strings.mLoopMode_once]: "播放一次",
+        [Strings.mLoopMode_loopYoyo]: "循环往复",
+        [Strings.mLoopMode_onceYoyo]: "往复一次",
+
+        [Strings.mTimeUnit_second]: "秒",
+        [Strings.mTimeUnit_frame]: "帧",
+
+        [Strings.mTanimValueType_px]: "x 坐标",
+        [Strings.mTanimValueType_py]: "y 坐标",
+        [Strings.mTanimValueType_s]: "大小",
+        [Strings.mTanimValueType_sx]: "x 拉伸",
+        [Strings.mTanimValueType_sy]: "y 拉伸",
+        [Strings.mTanimValueType_sq]: "挤压",
+        [Strings.mTanimValueType_sqx]: "x 挤压倍数",
+        [Strings.mTanimValueType_sqy]: "y 挤压倍数",
+        [Strings.mTanimValueType_d]: "方向",
+        [Strings.mTanimValueType_cos]: "造型",
+
+        [Strings.mTanimInfoType_lengthSec]: "时长",
+        [Strings.mTanimInfoType_length]: "总帧数",
+        [Strings.mTanimInfoType_fps]: "每秒帧数",
+
+        [Strings.mTanimEditorInfoType_time]: "当前帧",
+        [Strings.mTanimEditorInfoType_anim]: "当前动画",
+        [Strings.mTanimEditorInfoType_sprite]: "当前角色",
+        [Strings.mTanimEditorInfoType_cosPrefix]: "造型前缀",
+        [Strings.mTanimEditorInfoType_cosName]: "造型名称",
+        [Strings.mTanimEditorInfoType_cosSuffix]: "造型后缀",
+
+        [Strings.labelContext]: "~ 🍬动画语境 ~",
+        [Strings.labelSnapshot]: "~ 📷动画快照 ~",
+        [Strings.labelUtils]: "~ 👉附加功能 ~",
+
+        [Strings.buttonDoc]: "📄文档",
+        [Strings.buttonEditor]: "✏️动画编辑器",
+
+        [Strings.noTanimPleaseCreate]: "- 未创建动画 -",
+    },
+}
+
+Scratch.translate.setup(translates);
+
+function getTranslate(id: Strings): string {
+    return Scratch.translate({ id: id, default: translates["zh-cn"][id], });
+}
 
 function GetSafeCommentID(base: string): string {
     let ids = [];
@@ -40,56 +191,15 @@ function clamp(x: number, a: number, b: number) {
     return Math.max(a, Math.min(x, b));
 }
 
-let { exp, pow, PI, sin, sqrt } = Math;
-
-type Interfn = (x1: number, y1: number, x2: number, y2: number, x: number, ...args: any[]) => number;
-type Mapfn = (t: number, ...args: any[]) => number;
-
-class InterpolationFactory {
-    static InterMap(mfn: Mapfn): Interfn {
-        return (x1: number, y1: number, x2: number, y2: number, x: number, ...args: any[]) => {
-            let t = (x - x1) / (x2 - x1);
-            let r = mfn(t, ...args);
-            return (1 - r) * y1 + r * y2;
-        };
-    };
-
-    static MapReverse(mfn: Mapfn): Mapfn {
-        return (t: number, ...args: any[]) => 1 - mfn(1 - t, ...args);
-    };
-    static MapForwardReverse(mfn: Mapfn): Mapfn {
-        return (t: number, ...args: any[]) => {
-            if (t <= 0.5) {
-                return mfn(t * 2, ...args) / 2;
-            } else {
-                return 1 - mfn((1 - t) * 2, ...args) / 2;
-            }
-        }
-    };
-    static MapReverseForward(mfn: Mapfn): Mapfn {
-        return (t: number, ...args: any[]) => {
-            if (t <= 0.5) {
-                return (1 - mfn(1 - t * 2, ...args)) / 2;
-            } else {
-                return (1 + mfn(2 * t - 1, ...args)) / 2;
-            }
-        }
-    };
+function sqToSqx(sq: number) {
+    return sq > 0 ? (100 + sq) / 100 : 100 / (100 - sq);
 }
 
-/**
- * 一些缓动函数抄自https://blog.51cto.com/u_15057855/4403832 （从Animator扩展那里翻到的链接）
- * 这些ease函数都接受四个参数，转换为我使用的Inter函数即为：
- * t = x - x1
- * b = y1
- * c = y2
- * d = x2 - x1
- * 可以直接修改参数使其从(0,0)指向(1,1)，变为我Map函数：
- * t = t
- * b = 0
- * c = 1
- * d = 1
- */
+function sqToSqy(sq: number) {
+    return sq > 0 ? 100 / (100 + sq) : (100 - sq) / 100;
+}
+
+let { exp, pow, PI, sin, sqrt } = Math;
 
 /** 一系列插值函数，有的是我自己写的，有的是上网找的。
  * 
@@ -97,87 +207,97 @@ class InterpolationFactory {
  * 
  * Map函数接受一个t，返回一个插值度，从0到1。
  */
-
 class InterpolationFunctions {
 
-    static InterLerp = InterpolationFactory.InterMap(t => t);
+    static Lerp = (a: number, b: number, t: number) => (1 - t) * a + t * b;
 
+    static InterLerp(x1: number, y1: number, x2: number, y2: number, x: number): number {
+        let t = (x - x1) / (x2 - x1);
+        return this.Lerp(y1, y2, t);
+    };
 
-    static MapPowerF = (t: number, n: number) => pow(t, n);
-    static MapPowerR = InterpolationFactory.MapReverse(this.MapPowerF);
-    static MapPowerFR = InterpolationFactory.MapForwardReverse(this.MapPowerF);
-    static MapPowerRF = InterpolationFactory.MapReverseForward(this.MapPowerF);
+    static TInOut(t: number): number {
+        if (t <= 0.5) {
+            return t * 2;
+        } else {
+            return (1 - t) * 2;
+        }
+    };
 
-    static InterPowerF = InterpolationFactory.InterMap(this.MapPowerF);
-    static InterPowerR = InterpolationFactory.InterMap(this.MapPowerR);
-    static InterPowerFR = InterpolationFactory.InterMap(this.MapPowerFR);
-    static InterPowerRF = InterpolationFactory.InterMap(this.MapPowerRF);
+    static RInOut(t: number, r: number): number {
+        if (t <= 0.5) {
+            return r / 2;
+        } else {
+            return 1 - r / 2;
+        }
+    };
 
+    static TOutIn(t: number): number {
+        if (t <= 0.5) {
+            return 1 - t * 2;
+        } else {
+            return 2 * t - 1;
+        }
+    };
+
+    static ROutIn(t: number, r: number): number {
+        if (t <= 0.5) {
+            return (1 - r) / 2;
+        } else {
+            return (1 + r) / 2;
+        }
+    };
+
+    static InterEase(x1: number, y1: number, x2: number, y2: number, x: number, easeType: any, mfn: (tm: number) => number): number {
+        let t = (x - x1) / (x2 - x1);
+        let tm = t;
+        switch (easeType) {
+            case EaseType.out:
+                tm = 1 - t;
+                break;
+            case EaseType.inOut:
+                tm = this.TInOut(t);
+                break;
+            case EaseType.outIn:
+                tm = this.TOutIn(t);
+                break;
+        }
+        let rm = mfn(tm);
+        let r = rm;
+        switch (easeType) {
+            case EaseType.out:
+                r = 1 - rm;
+                break;
+            case EaseType.inOut:
+                r = this.RInOut(t, rm);
+                break;
+            case EaseType.outIn:
+                r = this.ROutIn(t, rm);
+                break;
+        }
+        return this.Lerp(y1, y2, r);
+    }
+
+    static MapPowerIn = (t: number, n: number) => pow(t, n);
 
     static MapExpIn = (t: number, n: number) => (exp(n * t) - 1) / (exp(n) - 1);
     /*{
         let a = exp(n);
         return (pow(a, t) - 1) / (a - 1);
     }*/
-    static MapExpOut = InterpolationFactory.MapReverse(this.MapExpIn);
-    static MapExpInOut = InterpolationFactory.MapForwardReverse(this.MapExpIn);
-    static MapExpOutIn = InterpolationFactory.MapReverseForward(this.MapExpIn);
-
-    static InterExpIn = InterpolationFactory.InterMap(this.MapExpIn);
-    static InterExpOut = InterpolationFactory.InterMap(this.MapExpOut);
-    static InterExpInOut = InterpolationFactory.InterMap(this.MapExpInOut);
-    static InterExpOutIn = InterpolationFactory.InterMap(this.MapExpOutIn);
-
 
     static MapSineIn = (t: number) => sin(t * 2 / PI);
-    static MapSineOut = InterpolationFactory.MapReverse(this.MapSineIn);
-    static MapSineInOut = InterpolationFactory.MapForwardReverse(this.MapSineIn);
-    static MapSineOutIn = InterpolationFactory.MapReverseForward(this.MapSineIn);
-
-    static InterSineIn = InterpolationFactory.InterMap(this.MapSineIn);
-    static InterSineOut = InterpolationFactory.InterMap(this.MapSineOut);
-    static InterSineInOut = InterpolationFactory.InterMap(this.MapSineInOut);
-    static InterSineOutIn = InterpolationFactory.InterMap(this.MapSineOutIn);
-
 
     static MapCircIn = (t: number) => sqrt(1 - pow(t, 2));
-    static MapCircOut = InterpolationFactory.MapReverse(this.MapCircIn);
-    static MapCircInOut = InterpolationFactory.MapForwardReverse(this.MapCircIn);
-    static MapCircOutIn = InterpolationFactory.MapReverseForward(this.MapCircIn);
-
-    static InterCircIn = InterpolationFactory.InterMap(this.MapCircIn);
-    static InterCircOut = InterpolationFactory.InterMap(this.MapCircOut);
-    static InterCircInOut = InterpolationFactory.InterMap(this.MapCircInOut);
-    static InterCircOutIn = InterpolationFactory.InterMap(this.MapCircOutIn);
-
 
     static MapElasticIn = (t: number, m: number, n: number) => ((exp(n * t) - 1) / (exp(n) - 1)) * sin(2 * PI * (m * (t - 1) + 0.25));
     /*{
         let a = exp(n);
         return ((pow(a, t) - 1) / (a - 1)) * sin(2 * PI * (m * (t - 1) + 0.25));
     }*/
-    static MapElasticOut = InterpolationFactory.MapReverse(this.MapElasticIn);
-    static MapElasticInOut = InterpolationFactory.MapForwardReverse(this.MapElasticIn);
-    static MapElasticOutIn = InterpolationFactory.MapReverseForward(this.MapElasticIn);
-
-    static InterElasticIn = InterpolationFactory.InterMap(this.MapElasticIn);
-    static InterElasticOut = InterpolationFactory.InterMap(this.MapElasticOut);
-    static InterElasticInOut = InterpolationFactory.InterMap(this.MapElasticInOut);
-    static InterElasticOutIn = InterpolationFactory.InterMap(this.MapElasticOutIn);
-
 
     static MapBackIn = (t: number, s: number) => t * t * ((s + 1) * t - s);
-    static MapBackOut = InterpolationFactory.MapReverse(this.MapBackIn);
-    static MapBackInOut = InterpolationFactory.MapForwardReverse(this.MapBackIn);
-    static MapBackOutIn = InterpolationFactory.MapReverseForward(this.MapBackIn);
-
-    static InterBackIn = InterpolationFactory.InterMap(this.MapBackIn);
-    static InterBackOut = InterpolationFactory.InterMap(this.MapBackOut);
-    static InterBackInOut = InterpolationFactory.InterMap(this.MapBackInOut);
-    static InterBackOutIn = InterpolationFactory.InterMap(this.MapBackOutIn);
-
     static GetBackH = (s: number) => (4 * s * s * s) / (27 * (s + 1) * (s + 1));
-
 
     // 网上抄的，这个应该没法简化
     static MapBounceOut = (t: number) =>  {
@@ -191,37 +311,28 @@ class InterpolationFunctions {
               return (7.5625*(t-=(2.625/2.75))*t + .984375);
         }
     };
-    static MapBounceIn = InterpolationFactory.MapReverse(this.MapBounceOut);
-    static MapBounceInOut = InterpolationFactory.MapForwardReverse(this.MapBounceIn);
-    static MapBounceOutIn = InterpolationFactory.MapReverseForward(this.MapBounceIn);
-
-    static InterBounceIn = InterpolationFactory.InterMap(this.MapBounceIn);
-    static InterBounceOut = InterpolationFactory.InterMap(this.MapBounceOut);
-    static InterBounceInOut = InterpolationFactory.InterMap(this.MapBounceInOut);
-    static InterBounceOutIn = InterpolationFactory.InterMap(this.MapBounceOutIn);
-
 
     static InterTradExp = (x1: number, y1: number, x2: number, y2: number, x: number, v: number, p: number) => {
         let a = pow(1 - 1 / v, p * (x2 - x1));
         let t = (x - x1) / (x2 - x1);
         let r = (pow(a, t) - 1) / (a - 1);
-        return (1 - r) * y1 + r * y2;
+        return this.Lerp(y1, y2, t);
     }
 
 
-    static InterLag2 = (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, x: number) => {
-        let l1 = (y1 * (x - x2) * (x - x3)) / ((x1 - x2) * (x1 - x3));
-        let l2 = (y2 * (x - x1) * (x - x3)) / ((x2 - x1) * (x2 - x3));
-        let l3 = (y3 * (x - x1) * (x - x2)) / ((x3 - x1) * (x3 - x2));
+    static InterLag2 = (x1: number, y1: number, x2: number, y2: number, cx: number, cy: number, x: number) => {
+        let l1 = (y1 * (x - cx) * (x - x2)) / ((x1 - cx) * (x1 - x2));
+        let l2 = (cy * (x - x1) * (x - x2)) / ((cx - x1) * (cx - x2));
+        let l3 = (y2 * (x - x1) * (x - cx)) / ((x2 - x1) * (x2 - cx));
         return l1 + l2 + l3;
     }
 
     static CalcBezier3 = (p1: number, p2: number, p3: number, p4: number, t: number) =>
         p1 * pow(1 - t, 3) + p2*3 * pow(1 - t, 2)*t + p3*3 * (1 - t)*pow(t, 2) + p4 * pow(t, 3);
-    // 牛顿法求近似解
-    static InterBezier3 = (x1: number, y1: number, x2: number, y2: number, x3: number, y3: number, x4: number, y4: number, x: number) => {
-        let f = (t: number) => this.CalcBezier3(x1, x2, x3, x4, t);
-        let t = (x - x1) / (x4 - x1);
+    // 牛顿法求近似解（直接解太复杂，D老师说这个比直接解快。。。虽然我感觉他在胡说，但这个目前来看似乎还算够用。。。）
+    static InterBezier3 = (x1: number, y1: number, x2: number, y2: number, cx1: number, cy1: number, cx2: number, cy2: number, x: number) => {
+        let f = (t: number) => this.CalcBezier3(x1, cx1, cx2, x2, t);
+        let t = (x - x1) / (x2 - x1);
         let low = 0;
         let high = 1;
         let ft;
@@ -236,7 +347,7 @@ class InterpolationFunctions {
             }
             t = (low + high) / 2;
         }
-        return this.CalcBezier3(y1, y2, y3, y4, t);
+        return this.CalcBezier3(y1, cy1, cy2, y2, t);
     }
 }
 
@@ -314,22 +425,37 @@ const enum TimeUnit {
     second = "second",
 }
 
+const enum TInfoType {
+    lengthSec = "lengthSec",
+    length = "length",
+    fps = "fps",
+}
+
+const enum TEditorInfoType {
+    time = "time",
+    anim = "anim",
+    sprite = "sprite",
+    cosPrefix = "cosPrefix",
+    cosName = "cosName",
+    cosSuffix = "cosSuffix",
+}
+
 /** 各种特殊属性的默认值 */
 const DefaultTValues: {[key: string]: TValue} = {
-    px: 0,
-    py: 0,
-    s: 100,
-    sx: 100,
-    sy: 100,
-    sq: 0,
-    sqx: 1,
-    sqy: 1,
-    d: 90,
-    cos: "",
+    [DefaultTValueType.px]: 0,
+    [DefaultTValueType.py]: 0,
+    [DefaultTValueType.s]: 100,
+    [DefaultTValueType.sx]: 100,
+    [DefaultTValueType.sy]: 100,
+    [DefaultTValueType.sq]: 0,
+    [DefaultTValueType.sqx]: 1,
+    [DefaultTValueType.sqy]: 1,
+    [DefaultTValueType.d]: 90,
+    [DefaultTValueType.cos]: "",
 }
 
 /** 如果一个动画值是空值，则返回其默认值 */
-function SafeGetTValue(tValue: TValue | null | undefined, tValueType: string): TValue {
+function SafeTValue(tValue: TValue | null | undefined, tValueType: string): TValue {
     return tValue ?? DefaultTValues[tValueType] ?? 0
 }
 
@@ -374,6 +500,37 @@ class Keyframe {
         }
     }
 
+    static GetDefaultParam(interType: string, key: string): any {
+        switch (interType) {
+            case InterType.power:
+                if (key == "n") return 2;
+                break;
+            case InterType.exp:
+                if (key == "n") return 6.93;
+                break;
+            case InterType.elastic:
+                if (key == "m") return 3.33;
+                if (key == "n") return 6.93;
+                break;
+            case InterType.back:
+                if (key == "s") return 1.70158;
+                break;
+            case InterType.tradExp:
+                if (key == "v") return 3;
+                if (key == "p") return 1;
+                break;
+        }
+        return undefined;
+    }
+
+    getParam(key: string): any {
+        let result = this.params === null ? undefined : this.params[key];
+        if (result === undefined) {
+            return Keyframe.GetDefaultParam(this.interType, key);
+        }
+        return result;
+    }
+
     static Ease(x: number, left: Keyframe, right: Keyframe): TValue {
         let interType = left.interType;
         let { x: x1, y: y1 } = left;
@@ -382,27 +539,36 @@ class Keyframe {
             return y1;
         }
         let params = left.params ?? {};
+        let easeType = params["easeType"];
         let fn = InterpolationFunctions;
         switch (interType) {
             case InterType.const:
                 return y1;
-                break;
             case InterType.linear:
                 return fn.InterLerp(x1, y1, x2, y2, x);
-                break;
+            case InterType.tradExp:
+                return fn.InterTradExp(x1, y1, x2, y2, x, left.getParam("v"), left.getParam("p"));
+            case InterType.lagrange:
+                return fn.InterLag2(x1, y1, x2, y2, params["cx"] ?? x1, params["cy"] ?? y1, x);
+            case InterType.bezier:
+                return fn.InterBezier3(x1, y1, x1 + (params["cx1"] ?? 0), y1 + (params["cy1"] ?? 0), x2 + (params["cx2"] ?? 0), y2 + (params["cy2"] ?? 0), x2, y2, x);
+
             case InterType.power:
-                switch (params["easeType"]) {
-                    case EaseType.out:
-                        return fn.InterPowerF
-                        break;
-                
-                    default:
-                    case EaseType.in:
-                        break;
-                }
+                return fn.InterEase(x1, y1, x2, y2, x, easeType, tm => fn.MapPowerIn(tm, left.getParam("n")));
+            case InterType.exp:
+                return fn.InterEase(x1, y1, x2, y2, x, easeType, tm => fn.MapExpIn(tm, left.getParam("n")));
+            case InterType.sine:
+                return fn.InterEase(x1, y1, x2, y2, x, easeType, tm => fn.MapSineIn(tm));
+            case InterType.circular:
+                return fn.InterEase(x1, y1, x2, y2, x, easeType, tm => fn.MapCircIn(tm));
+            case InterType.elastic:
+                return fn.InterEase(x1, y1, x2, y2, x, easeType, tm => fn.MapElasticIn(tm, left.getParam("m"), left.getParam("n")));
+            case InterType.back:
+                return fn.InterEase(x1, y1, x2, y2, x, easeType, tm => fn.MapBackIn(tm, left.getParam("s")));
+            case InterType.bounce:
+                return fn.InterEase(x1, y1, x2, y2, x, easeType, tm => fn.MapBounceOut(1 - tm));
             default:
                 return y1;
-                break;
         }
     }
 }
@@ -477,10 +643,10 @@ class Timeline {
         }
 
         if (!left) {
-            return SafeGetTValue(null, this.tValueType);
+            return SafeTValue(null, this.tValueType);
         }
         if (!right) {
-            return SafeGetTValue(left.y, this.tValueType);
+            return SafeTValue(left.y, this.tValueType);
         }
 
         return Keyframe.Ease(x, left, right);
@@ -532,9 +698,8 @@ class Tanim {
         return result ?? null
     }
 
-    getTValue(tValueType: string, time: number, timeUnit: TimeUnit, loopMode: LoopMode): TValue | null {
-        let timeline = this.getTimelineByTValueType(tValueType);
-        if (!timeline) return null;
+    /** 将用户输入的时间转化为时间轴上的横坐标 */
+    getTime(time: number, timeUnit: TimeUnit, loopMode: LoopMode): number {
         if (timeUnit === TimeUnit.second) {
             time /= this.fps;
         }
@@ -555,7 +720,34 @@ class Tanim {
                 time = time % this.length;
                 break;
         }
+        return time;
+    }
+
+    getTValue(tValueType: string, time: number, timeUnit: TimeUnit, loopMode: LoopMode): TValue | null {
+        if (tValueType == DefaultTValueType.sqx || tValueType == DefaultTValueType.sqy) {
+            let sq = SafeTValue(this.getTValue(DefaultTValueType.sq, time, timeUnit, loopMode), DefaultTValueType.sq);
+            if (typeof sq == "string") {
+                return 1;// 这里我个偷懒，直接特判，把默认值硬编码在这。反正这个默认值不太可能改。
+            }
+            if (tValueType == DefaultTValueType.sqx) {
+                return sqToSqx(sq);
+            } else {
+                return sqToSqy(sq);
+            }
+        }
+        let timeline = this.getTimelineByTValueType(tValueType);
+        if (!timeline) return null;
+        time = this.getTime(time, timeUnit, loopMode);
         return timeline.getTValueByFrame(time);
+    }
+
+    getSnapshot(time: number, timeUnit: TimeUnit, loopMode: LoopMode): Snapshot {
+        let snapshot: Snapshot = {};
+        time = this.getTime(time, timeUnit, loopMode);
+        for (let timeline of this.timelines) {
+            snapshot[timeline.tValueType] = timeline.getTValueByFrame(time);
+        }
+        return snapshot;
     }
 }
 
@@ -563,12 +755,32 @@ class Tanim {
 class TanimManager {
     tanims: Tanim[];
     context: Snapshot;
-    snapshots: Snapshot[];
+    snapshots: (Snapshot | null)[];
+    tValueTypes: string[];
 
     constructor(tanims: Tanim[]) {
         this.tanims = tanims;
         this.context = {};
         this.snapshots = [];
+        this.tValueTypes = [
+            DefaultTValueType.px,
+            DefaultTValueType.py,
+            DefaultTValueType.s,
+            DefaultTValueType.sx,
+            DefaultTValueType.sy,
+            DefaultTValueType.sq,
+            DefaultTValueType.sqx,
+            DefaultTValueType.sqy,
+            DefaultTValueType.d,
+            DefaultTValueType.cos,
+        ]
+        for (let tanim of tanims) {
+            for (let timeline of tanim.timelines) {
+                if (this.tValueTypes.indexOf(timeline.tValueType) == -1) {
+                    this.tValueTypes.push(timeline.tValueType);
+                }
+            }
+        }
     }
 
     static FromObject(obj: any): TanimManager | null {
@@ -599,8 +811,64 @@ class TanimManager {
         return result ?? null
     }
 
-    getContextValue(tValueType: string) {
-        return SafeGetTValue(this.context[tValueType], tValueType);
+    getContextValue(tValueType: string): TValue {
+        return SafeTValue(this.context[tValueType], tValueType);
+    }
+
+    getSnapshotByIndex(index: number): Snapshot | null {
+        return this.snapshots[index] ?? null;
+    }
+
+    getSnapshotValue(snapshot: Snapshot, tValueType: string): TValue {
+        return SafeTValue(snapshot[tValueType], tValueType);
+    }
+
+    transitSnapshot(snapshotA: Snapshot, snapshotB: Snapshot, t: number): Snapshot {
+        let lerp = InterpolationFunctions.Lerp;
+        let result: Snapshot = {};
+        for (let tValueType in new Set([...Object.keys(snapshotA), ...Object.keys(snapshotB)])) {
+            if (tValueType == DefaultTValueType.sqx || tValueType == DefaultTValueType.sqy) {
+                // 挤压倍数有特殊的插值方式：对挤压进行插值，并算出插值后的挤压倍数
+                let sqa = SafeTValue(snapshotA[DefaultTValueType.sq], DefaultTValueType.sq);
+                let sqb = SafeTValue(snapshotB[DefaultTValueType.sq], DefaultTValueType.sq);
+                if (typeof sqa == "string" || typeof sqb == "string") {
+                    continue;
+                }
+                let sq = lerp(sqa, sqb, t);
+                if (tValueType == DefaultTValueType.sqx) {
+                    result[tValueType] = sqToSqx(sq);
+                } else {
+                    result[tValueType] = sqToSqy(sq);
+                }
+            } else {
+                // 大部分属性的插值方式
+                let va = SafeTValue(snapshotA[tValueType], tValueType);
+                let vb = SafeTValue(snapshotB[tValueType], tValueType);
+                if (typeof va == "string" || typeof vb == "string") {
+                    result[tValueType] = t <= 0.5 ? va : vb;
+                } else {
+                    result[tValueType] = lerp(va, vb, t);
+                }
+            }
+        }
+        return result;
+    }
+
+    allocateSnapshotIndex(snapshot: Snapshot): number {
+        let index = this.snapshots.indexOf(null);
+        if (index == -1) {
+            index = this.snapshots.length;
+        }
+        this.snapshots[index] = snapshot;
+        return index;
+    }
+
+    recycleSnapshotIndex(index: number): void {
+        if (this.snapshots[index]) this.snapshots[index] = null;
+    }
+
+    recycleAllSnapshot(): void {
+        this.snapshots.length = 0;
     }
 }
 
@@ -693,7 +961,17 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
 vm.runtime.on("PROJECT_LOADED", () => AutoLoadData(true));
 
 class TanimEditor {
+    time: number;
+    tanim: Tanim | null;
+    sprite: Target | null;
+    costume: [string, string, string];
 
+    constructor() {
+        this.time = 0;
+        this.tanim = null;
+        this.sprite = null;
+        this.costume = ["", "", ""];
+    }
 }
 
 const TheTanimEditor = new TanimEditor();
@@ -702,85 +980,464 @@ const TheTanimEditor = new TanimEditor();
 
 class CQEasyTanim {
     getInfo() { return {
-        id: "cqeasytanim",
-        name: "Easy Tanim",
+        id: theExtID,
+        name: getTranslate(Strings.extName),
         color1: "#12b322",
         color2: "#0e8c1b",
         color3: "#0a6613",
         blocks: [
             {
-                opcode: "SPEAK",
-                blockType: Scratch.BlockType.COMMAND,
-                text: "[VOICE] speaks [TEXT] P [PITCH] R [RATE] V [VOLUME]",
+                blockType: Scratch.BlockType.BUTTON,
+                text: getTranslate(Strings.buttonDoc),
+                func: "OnClickDocButton",
+            },
+            {
+                blockType: Scratch.BlockType.BUTTON,
+                text: getTranslate(Strings.buttonEditor),
+                func: "OnClickEditorButton",
+            },
+            {
+                opcode: Opcode.BGetTanimValue,
+                blockType: Scratch.BlockType.REPORTER,
+                text: getTranslate(Strings.bGetTanimValue),
                 arguments: {
-                    VOICE: {
+                    tanimName: {
                         type: Scratch.ArgumentType.STRING,
-                        defaultValue: "",
+                        menu: MenuName.MTanimName,
                     },
-                    TEXT: {
+                    loopMode: {
                         type: Scratch.ArgumentType.STRING,
-                        defaultValue: "啤酒挺凉，我就坐在大钟旁，真吊。",
+                        menu: MenuName.MLoopMode,
                     },
-                    PITCH: {
+                    time: {
+                        type: Scratch.ArgumentType.NUMBER,
+                        defaultValue: 0,
+                    },
+                    timeUnit: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MTimeUnit,
+                    },
+                    tanimValueType: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MTanimValueType,
+                    },
+                },
+            },
+
+            /* --- 动画语境 --- */
+
+            {
+                blockType: Scratch.BlockType.LABEL,
+                text: getTranslate(Strings.labelContext),
+            },
+            {
+                opcode: Opcode.BSetContext,
+                blockType: Scratch.BlockType.COMMAND,
+                text: getTranslate(Strings.bSetContext),
+                arguments: {
+                    tanimName: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MTanimName,
+                    },
+                    loopMode: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MLoopMode,
+                    },
+                    time: {
+                        type: Scratch.ArgumentType.NUMBER,
+                        defaultValue: 0,
+                    },
+                    timeUnit: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MTimeUnit,
+                    },
+                },
+            },
+            {
+                opcode: Opcode.BGetContextValue,
+                blockType: Scratch.BlockType.REPORTER,
+                text: getTranslate(Strings.bGetContextValue),
+                arguments: {
+                    tanimValueType: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MTanimValueType,
+                    },
+                },
+            },
+
+            /* --- 动画快照 --- */
+
+            {
+                blockType: Scratch.BlockType.LABEL,
+                text: getTranslate(Strings.labelSnapshot),
+            },
+            {
+                opcode: Opcode.BCreateSnapshot,
+                blockType: Scratch.BlockType.REPORTER,
+                text: getTranslate(Strings.bCreateSnapshot),
+                arguments: {
+                    tanimName: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MTanimName,
+                    },
+                    loopMode: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MLoopMode,
+                    },
+                    time: {
+                        type: Scratch.ArgumentType.NUMBER,
+                        defaultValue: 0,
+                    },
+                    timeUnit: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MTimeUnit,
+                    },
+                },
+            },
+            {
+                opcode: Opcode.BTransitSnapshot,
+                blockType: Scratch.BlockType.REPORTER,
+                text: getTranslate(Strings.bTransitSnapshot),
+                arguments: {
+                    snapshotIndexA: {
                         type: Scratch.ArgumentType.NUMBER,
                         defaultValue: 1,
                     },
-                    RATE: {
+                    snapshotIndexB: {
+                        type: Scratch.ArgumentType.NUMBER,
+                        defaultValue: 2,
+                    },
+                    transitT: {
+                        type: Scratch.ArgumentType.NUMBER,
+                        defaultValue: 0.5,
+                    },
+                },
+            },
+            {
+                opcode: Opcode.BGetSnapshotValue,
+                blockType: Scratch.BlockType.REPORTER,
+                text: getTranslate(Strings.bGetSnapshotValue),
+                arguments: {
+                    snapshotIndex: {
                         type: Scratch.ArgumentType.NUMBER,
                         defaultValue: 1,
                     },
-                    VOLUME: {
+                    tanimValueType: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MTanimValueType,
+                    },
+                },
+            },
+            {
+                opcode: Opcode.BSetContextBySnapshot,
+                blockType: Scratch.BlockType.COMMAND,
+                text: getTranslate(Strings.bSetContextBySnapshot),
+                arguments: {
+                    snapshotIndex: {
                         type: Scratch.ArgumentType.NUMBER,
                         defaultValue: 1,
                     },
                 },
             },
             {
-                opcode: "GETVOICE",
-                blockType: Scratch.BlockType.REPORTER,
-                text: "voice [IDX]",
-                arguments: {
-                    IDX: {
-                        type: Scratch.ArgumentType.NUMBER,
-                        defaultValue: 0,
-                    }
-                }
-            },
-            {
-                opcode: "ISSPEAKING",
-                blockType: Scratch.BlockType.BOOLEAN,
-                text: "is speaking?",
-            },
-            {
-                opcode: "STOP",
+                opcode: Opcode.BDeleteSnapshot,
                 blockType: Scratch.BlockType.COMMAND,
-                text: "stop voice",
+                text: getTranslate(Strings.bDeleteSnapshot),
+                arguments: {
+                    snapshotIndex: {
+                        type: Scratch.ArgumentType.NUMBER,
+                        defaultValue: 1,
+                    },
+                },
+            },
+            {
+                opcode: Opcode.BDeleteAllSnapshot,
+                blockType: Scratch.BlockType.COMMAND,
+                text: getTranslate(Strings.bDeleteAllSnapshot),
+            },
+
+            /* --- 附加功能 --- */
+
+            {
+                blockType: Scratch.BlockType.LABEL,
+                text: getTranslate(Strings.labelUtils),
+            },
+            {
+                opcode: Opcode.BGetTanimInfo,
+                blockType: Scratch.BlockType.REPORTER,
+                text: getTranslate(Strings.bGetTanimInfo),
+                arguments: {
+                    tanimName: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MTanimName,
+                    },
+                    tanimInfoType: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MTanimInfoType,
+                    },
+                },
+            },
+            {
+                opcode: Opcode.BGetTanimEditorInfo,
+                blockType: Scratch.BlockType.REPORTER,
+                text: getTranslate(Strings.bGetTanimEditorInfo),
+                arguments: {
+                    tanimEditorInfoType: {
+                        type: Scratch.ArgumentType.STRING,
+                        menu: MenuName.MTanimEditorInfoType,
+                    },
+                },
             },
         ],
+        menus: {
+            [MenuName.MTanimName]: {
+                acceptReporters: true,
+                items: "MGetTanimNames",
+            },
+            [MenuName.MLoopMode]: {
+                acceptReporters: true,
+                items: [
+                    {
+                        text: getTranslate(Strings.mLoopMode_loop),
+                        value: LoopMode.loop,
+                    },
+                    {
+                        text: getTranslate(Strings.mLoopMode_once),
+                        value: LoopMode.once,
+                    },
+                    {
+                        text: getTranslate(Strings.mLoopMode_loopYoyo),
+                        value: LoopMode.loopYoyo,
+                    },
+                    {
+                        text: getTranslate(Strings.mLoopMode_onceYoyo),
+                        value: LoopMode.onceYoyo,
+                    },
+                ],
+            },
+            [MenuName.MTimeUnit]: {
+                acceptReporters: true,
+                items: [
+                    {
+                        text: getTranslate(Strings.mTimeUnit_second),
+                        value: TimeUnit.second,
+                    },
+                    {
+                        text: getTranslate(Strings.mTimeUnit_frame),
+                        value: TimeUnit.frame,
+                    },
+                ],
+            },
+            [MenuName.MTanimValueType]: {
+                acceptReporters: true,
+                items: "MGetTanimValueTypes",
+            },
+            [MenuName.MTanimInfoType]: {
+                acceptReporters: false,
+                items: [
+                    {
+                        text: getTranslate(Strings.mTanimInfoType_lengthSec),
+                        value: TInfoType.lengthSec,
+                    },
+                    {
+                        text: getTranslate(Strings.mTanimInfoType_length),
+                        value: TInfoType.length,
+                    },
+                    {
+                        text: getTranslate(Strings.mTanimInfoType_fps),
+                        value: TInfoType.fps,
+                    },
+                ],
+            },
+            [MenuName.MTanimEditorInfoType]: {
+                acceptReporters: false,
+                items: [
+                    {
+                        text: getTranslate(Strings.mTanimEditorInfoType_time),
+                        value: TEditorInfoType.time,
+                    },
+                    {
+                        text: getTranslate(Strings.mTanimEditorInfoType_anim),
+                        value: TEditorInfoType.anim,
+                    },
+                    {
+                        text: getTranslate(Strings.mTanimEditorInfoType_sprite),
+                        value: TEditorInfoType.sprite,
+                    },
+                    {
+                        text: getTranslate(Strings.mTanimEditorInfoType_cosPrefix),
+                        value: TEditorInfoType.cosPrefix,
+                    },
+                    {
+                        text: getTranslate(Strings.mTanimEditorInfoType_cosName),
+                        value: TEditorInfoType.cosName,
+                    },
+                    {
+                        text: getTranslate(Strings.mTanimEditorInfoType_cosSuffix),
+                        value: TEditorInfoType.cosSuffix,
+                    },
+                ],
+            },
+        },
     }; }
 
-    SPEAK({VOICE, TEXT, PITCH, RATE, VOLUME}: any) {
-        speechSynthesis.cancel();
-        let u = new SpeechSynthesisUtterance(TEXT);
-        u.lang = this.Lang;
-        u.voice = speechSynthesis.getVoices().find(voice => voice.name == VOICE);
-        u.pitch = PITCH;
-        u.rate = RATE;
-        u.volume = VOLUME;
-        speechSynthesis.speak(u);
+    OnClickDocButton(): void {
+
     }
 
-    GETVOICE({IDX}) {
-        let voices = speechSynthesis.getVoices();
-        if (IDX < voices.length) { return voices[IDX].name; };
+    OnClickEditorButton(): void {
+
     }
 
-    ISSPEAKING() {
-        return speechSynthesis.speaking;
+    MGetTanimNames(): MenuItem[] {
+        let tanimNames: MenuItem[] = [];
+        for (let i = 0; i < TheTanimManager.tanims.length; i++) {
+            let name = TheTanimManager.tanims[i].name;
+            tanimNames.push({ text: name, value: name });
+        }
+        if (tanimNames.length == 0) tanimNames.push({ text: getTranslate(Strings.noTanimPleaseCreate), value: "" });
+        return tanimNames;
     }
 
-    STOP() {
-        speechSynthesis.cancel();
+    MGetTanimValueTypes(): MenuItem[] {
+        let tanimValueTypes: MenuItem[] = [];
+        for (let i = 0; i < TheTanimManager.tValueTypes.length; i++) {
+            let tValueType = TheTanimManager.tValueTypes[i];
+            let text;
+            switch (tValueType) {
+                case DefaultTValueType.px:
+                    text = getTranslate(Strings.mTanimValueType_px);
+                    break;
+                case DefaultTValueType.py:
+                    text = getTranslate(Strings.mTanimValueType_py);
+                    break;
+                case DefaultTValueType.s:
+                    text = getTranslate(Strings.mTanimValueType_s);
+                    break;
+                case DefaultTValueType.sx:
+                    text = getTranslate(Strings.mTanimValueType_sx);
+                    break;
+                case DefaultTValueType.sy:
+                    text = getTranslate(Strings.mTanimValueType_sy);
+                    break;
+                case DefaultTValueType.sq:
+                    text = getTranslate(Strings.mTanimValueType_sq);
+                    break;
+                case DefaultTValueType.sqx:
+                    text = getTranslate(Strings.mTanimValueType_sqx);
+                    break;
+                case DefaultTValueType.sqy:
+                    text = getTranslate(Strings.mTanimValueType_sqy);
+                    break;
+                case DefaultTValueType.d:
+                    text = getTranslate(Strings.mTanimValueType_d);
+                    break;
+                case DefaultTValueType.cos:
+                    text = getTranslate(Strings.mTanimValueType_cos);
+                    break;
+                default:
+                    text = tValueType;
+                    break;
+            }
+            tanimValueTypes.push({ text: text, value: tValueType });
+        }
+        return tanimValueTypes;
+    }
+
+    [Opcode.BGetTanimValue]({tanimName, loopMode, time, timeUnit, tanimValueType}: any): TValue {
+        tanimName = Scratch.Cast.toString(tanimName);
+        time = Scratch.Cast.toNumber(time);
+        tanimValueType = Scratch.Cast.toString(tanimValueType);
+        let tanim = TheTanimManager.getTanimByName(tanimName);
+        if (!tanim) return SafeTValue(null, tanimValueType);
+        return SafeTValue(tanim.getTValue(tanimValueType, time, timeUnit, loopMode), tanimValueType);
+    }
+
+    [Opcode.BSetContext]({tanimName, loopMode, time, timeUnit}: any): void {
+        tanimName = Scratch.Cast.toString(tanimName);
+        time = Scratch.Cast.toNumber(time);
+        let tanim = TheTanimManager.getTanimByName(tanimName);
+        if (!tanim) return;
+        TheTanimManager.context = tanim.getSnapshot(time, timeUnit, loopMode);
+    }
+
+    [Opcode.BGetContextValue]({tanimValueType}: any): TValue {
+        tanimValueType = Scratch.Cast.toString(tanimValueType);
+        return SafeTValue(TheTanimManager.context[tanimValueType], tanimValueType);
+    }
+
+    [Opcode.BCreateSnapshot]({tanimName, loopMode, time, timeUnit}: any): number {
+        tanimName = Scratch.Cast.toString(tanimName);
+        time = Scratch.Cast.toNumber(time);
+        let tanim = TheTanimManager.getTanimByName(tanimName);
+        if (!tanim) return 0;
+        let snapshot = tanim.getSnapshot(time, timeUnit, loopMode);
+        let index = TheTanimManager.allocateSnapshotIndex(snapshot);
+        return index + 1;
+    }
+
+    [Opcode.BTransitSnapshot]({snapshotIndexA, snapshotIndexB, transitT}: any): number {
+        snapshotIndexA = Scratch.Cast.toNumber(snapshotIndexA);
+        snapshotIndexB = Scratch.Cast.toNumber(snapshotIndexB);
+        transitT = Scratch.Cast.toNumber(transitT);
+        let snapshotA = TheTanimManager.getSnapshotByIndex(snapshotIndexA - 1);
+        if (snapshotA === null) return 0;
+        let snapshotB = TheTanimManager.getSnapshotByIndex(snapshotIndexB - 1);
+        if (snapshotB === null) return 0;
+        let snapshot = TheTanimManager.transitSnapshot(snapshotA, snapshotB, clamp(transitT, 0, 1));
+        let index = TheTanimManager.allocateSnapshotIndex(snapshot);
+        return index + 1;
+    }
+
+    [Opcode.BGetSnapshotValue]({snapshotIndex, tanimValueType}: any): TValue {
+        snapshotIndex = Scratch.Cast.toNumber(snapshotIndex);
+        let snapshot = TheTanimManager.getSnapshotByIndex(snapshotIndex - 1);
+        if (snapshot === null) return SafeTValue(null, tanimValueType);
+        tanimValueType = Scratch.Cast.toString(tanimValueType);
+        return SafeTValue(snapshot[tanimValueType], tanimValueType);
+    }
+
+    [Opcode.BSetContextBySnapshot]({snapshotIndex}: any): void {
+        snapshotIndex = Scratch.Cast.toNumber(snapshotIndex);
+        let snapshot = TheTanimManager.getSnapshotByIndex(snapshotIndex - 1);
+        if (snapshot === null) return;
+        TheTanimManager.context = snapshot;
+    }
+
+    [Opcode.BDeleteSnapshot]({snapshotIndex}: any): void {
+        snapshotIndex = Scratch.Cast.toNumber(snapshotIndex);
+        TheTanimManager.recycleSnapshotIndex(snapshotIndex - 1)
+    }
+
+    [Opcode.BDeleteAllSnapshot](): void {
+        TheTanimManager.recycleAllSnapshot();
+    }
+
+    [Opcode.BGetTanimInfo]({tanimName, tanimInfoType}: any): number{
+        tanimName = Scratch.Cast.toString(tanimName);
+        let tanim = TheTanimManager.getTanimByName(tanimName);
+        if (!tanim) return 0;
+        tanimInfoType = Scratch.Cast.toString(tanimInfoType);
+        switch (tanimInfoType) {
+            case TInfoType.lengthSec:
+                return Scratch.Cast.toNumber(tanim.length / tanim.fps);
+            case TInfoType.length:
+                return Scratch.Cast.toNumber(tanim.length);
+            case TInfoType.fps:
+                return Scratch.Cast.toNumber(tanim.fps);
+            default:
+                return 0;
+        }
+    }
+
+    [Opcode.BGetTanimEditorInfo]({tanimEditorInfoType}: any): number | string {
+        tanimEditorInfoType = Scratch.Cast.toString(tanimEditorInfoType);
+        switch (tanimEditorInfoType) {// ⚠️⚠️⚠️ 施工中 ⚠️⚠️⚠️
+            case TEditorInfoType.time:
+                return "";
+            default:
+                return 0;
+        }
     }
 }
 
