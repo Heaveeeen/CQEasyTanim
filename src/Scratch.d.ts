@@ -30,7 +30,7 @@ declare interface costume {
         * @param {string} [contentType] - Optionally override the content type to be included in the data URI.
         * @returns {string} - A data URI representing the asset's data.
         */
-       encodeDataURI(contentType?: string): string,
+        encodeDataURI(contentType?: string): string,
     },
     assetId: string,
     dataFormat: string,
@@ -198,6 +198,7 @@ declare const Scratch: {
         toListIndex(index: any, length: number, acceptAll: boolean): number | string,
     },
 
+    /** Gandi 会在扩展加载结束后，将 Scratch.vm 替换为 null，务必自行保留 vm 的引用 */
     vm: {
         runtime: {
             /** 添加一个事件监听器 */
@@ -217,7 +218,7 @@ declare const Scratch: {
          * 登记一个扩展。
          * @param extension 扩展实例
          */
-        register(extensionObject: any): any,
+        register(extension: any): any,
         /** 用以检查是否为非沙盒模式 */
         unsandboxed: boolean,
     },
