@@ -42,7 +42,17 @@ declare interface costume {
     skinId: number,
 }
 
-declare interface Target {
+declare interface Sprite {
+    blocks: any,
+    clones: RenderedTarget[],
+    costumes: costume[],
+    name: string,
+    runtime: typeof Scratch.vm.runtime,
+    soundBank: any,
+    sounds: any[],
+}
+
+declare interface RenderedTarget {
     blocks: any,
     comments: {[key: string]: ScratchComment},
     /**
@@ -58,9 +68,11 @@ declare interface Target {
      * @param minimized 是否最小化
      */
     createComment(id: string, blockId: string | null, text: string, x: number, y: number, width: number, height: number, minimized: boolean): void,
-    sprite: {
-        costumes: costume[],
-    },
+    sprite: Sprite,
+
+    getCostumes(): costume[],
+    getCostumeIndexByName(name: string): number,
+    getCurrentCostume(): costume,
 }
 
 declare const Scratch: {
@@ -207,9 +219,10 @@ declare const Scratch: {
             on(type: RuntimeEventName, listener: Function): any,
             /** 触发一个事件，如果触发成功则返回 true */
             emit(type: RuntimeEventName): boolean,
-            targets: Target[];
+            targets: RenderedTarget[];
             /** 我只知道这个似乎可以用于判断是否为 Gandi */
-            gandi?: any;
+            gandi?: any,
+            getSpriteTargetByName(name: string): RenderedTarget | undefined,
         },
     },
 
