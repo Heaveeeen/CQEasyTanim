@@ -1,11 +1,12 @@
 {
     "compilerOptions": {
-        "target": "ES2016",
+        "target": "ES2020",
         "outDir": "./dist",
         "rootDir": "./src",
         "strict": true,
         "noPropertyAccessFromIndexSignature": true,
         "removeComments": true,
+        "newLine": "crlf",
     },
     "include": ["src/**/*"]
 }

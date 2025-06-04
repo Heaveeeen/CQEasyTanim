@@ -1,6 +1,9 @@
 
 /**
  * Easy Tanim
+ * 
+ * https://github.com/Heaveeeen/CQEasyTanim
+ * 
  * 这是一个 Scratch 扩展。本扩展能够轻松实现时间轴动画。内置动画编辑器，完美兼容 turbowarp。
  * 
  * 作者：苍穹
@@ -35,11 +38,37 @@ Easy Tanim must run unsandboxed.`);
 }
 
 const vm = Scratch.vm;
+const runtime = vm.runtime;
 const Cast = Scratch.Cast;
-const isGandi: boolean = vm.runtime.gandi ? true : false;
+const isGandi: boolean = runtime.gandi ? true : false;
 
 const TheExtensionID = "cqeasytanim";
 const TheExtensionVersion = "0.0.0-beta";
+
+const enum Opcode {
+    BGetTanimValue = "BGetTanimValue",
+    BSetContext = "BSetContext",
+    BGetContextValue = "BGetContextValue",
+    BCreateSnapshot = "BCreateSnapshot",
+    BTransitSnapshot = "BTransitSnapshot",
+    BGetSnapshotValue = "BGetSnapshotValue",
+    BSetContextBySnapshot = "BSetContextBySnapshot",
+    BDeleteSnapshot = "BDeleteSnapshot",
+    BDeleteAllSnapshot = "BDeleteAllSnapshot",
+    BGetTanimInfo = "BGetTanimInfo",
+    BGetTanimEditorInfo = "BGetTanimEditorInfo",
+}
+
+const enum MenuName {
+    MTanimName = "MTanimName",
+    MLoopMode = "MLoopMode",
+    MTimeUnit = "MTimeUnit",
+    MTanimValueType = "MTanimValueType",
+    MTanimInfoType = "MTanimInfoType",
+    MTanimEditorInfoType = "MTanimEditorInfoType",
+}
+
+// #region 语言
 
 const enum Strings {
     extName = "CQET_extName",
@@ -115,6 +144,7 @@ const enum Strings {
     eKUINoSelect = "CQET_eKUINoSelect",
     eKUIMultiSelect = "CQET_eKUIMultiSelect",
     eKUILastSelect = "CQET_eKUILastSelect",
+    eKUIStringKeyframeSelect = "CQET_eKUIStringKeyframeSelect",
 
     eKUITimeSec = "CQET_eKUITimeSec",
     eKUITimeFrame = "CQET_eKUITimeFrame",
@@ -178,30 +208,27 @@ const enum Strings {
     eInputLagrangeCXQuestion = "CQET_eInputLagrangeCXQuestion",
     eInputLagrangeCYQuestion = "CQET_eInputLagrangeCYQuestion",
 
+    eTUINamePxPy = "CQET_eTUINamePxPy",
+    eTUINameS = "CQET_eTUINameS",
+    eTUINameSxSy = "CQET_eTUINameSxSy",
+    eTUINameSq = "CQET_eTUINameSq",
+    eTUINameD = "CQET_eTUINameD",
+    eTUINameCos = "CQET_eTUINameCos",
+    eTUINameCreateNewTValueType = "CQET_eTUINameCreateNewTValueType",
+
+    eDefaultTValueTypeName = "CQET_eDefaultTValueTypeName",
+    eNewTValueTypeQuestion = "CQET_eNewTValueTypeQuestion",
+
+    ePUISpriteName = "CQET_ePUISpriteName",
+    ePUISpriteNameQuestion = "CQET_ePUISpriteNameQuestion",
+    ePUICostumeName0 = "CQET_ePUICostumeName0",
+    ePUICostumeName0Question = "CQET_ePUICostumeName0Question",
+    ePUICostumeName1 = "CQET_ePUICostumeName1",
+    ePUICostumeName1Question = "CQET_ePUICostumeName1Question",
+    ePUICostumeName2 = "CQET_ePUICostumeName2",
+    ePUICostumeName2Question = "CQET_ePUICostumeName2Question",
+
     tanimMenuPlaceholder = "CQET_tanimMenuPlaceholder",
-}
-
-const enum Opcode {
-    BGetTanimValue = "BGetTanimValue",
-    BSetContext = "BSetContext",
-    BGetContextValue = "BGetContextValue",
-    BCreateSnapshot = "BCreateSnapshot",
-    BTransitSnapshot = "BTransitSnapshot",
-    BGetSnapshotValue = "BGetSnapshotValue",
-    BSetContextBySnapshot = "BSetContextBySnapshot",
-    BDeleteSnapshot = "BDeleteSnapshot",
-    BDeleteAllSnapshot = "BDeleteAllSnapshot",
-    BGetTanimInfo = "BGetTanimInfo",
-    BGetTanimEditorInfo = "BGetTanimEditorInfo",
-}
-
-const enum MenuName {
-    MTanimName = "MTanimName",
-    MLoopMode = "MLoopMode",
-    MTimeUnit = "MTimeUnit",
-    MTanimValueType = "MTanimValueType",
-    MTanimInfoType = "MTanimInfoType",
-    MTanimEditorInfoType = "MTanimEditorInfoType",
 }
 
 const translates = {
@@ -282,6 +309,7 @@ const translates = {
         [Strings.eKUINoSelect]: "- 未选中关键帧 -",
         [Strings.eKUIMultiSelect]: "- 多个关键帧 -",
         [Strings.eKUILastSelect]: "- 最后一个关键帧 -",
+        [Strings.eKUIStringKeyframeSelect]: "- 这个关键帧的值是字符串 -",
 
         [Strings.eKUITimeSec]: "秒：[TimeSec]",
         [Strings.eKUITimeFrame]: "帧：[TimeFrame]",
@@ -329,21 +357,41 @@ const translates = {
         [Strings.eInterTypeBezierShort]: "曲线",
         [Strings.eInterTypeBezierLong]: "贝塞尔曲线",
 
-        [Strings.eInputKeyframeSecQuestion]: "输入关键帧横坐标（秒）",
-        [Strings.eInputKeyframeFrameQuestion]: "输入关键帧横坐标（帧）",
-        [Strings.eInputKeyframeTValueQuestion]: "输入关键帧值（数字或字符串）",
+        [Strings.eInputKeyframeSecQuestion]: "更改关键帧横坐标（秒）",
+        [Strings.eInputKeyframeFrameQuestion]: "更改关键帧横坐标（帧）",
+        [Strings.eInputKeyframeTValueQuestion]: "更改关键帧值（数字或字符串）",
 
-        [Strings.eInputPowerNQuestion]: "输入幂函数指数（≥0）",
-        [Strings.eInputExpNQuestion]: "输入指数缓动陡峭程度（>0）",
-        [Strings.eInputElasticMQuestion]: "输入弹簧缓动摆动次数（>0）",
-        [Strings.eInputElasticNQuestion]: "输入弹簧缓动陡峭程度（>0）",
-        [Strings.eInputBackSQuestion]: "输入回弹幅度（≥0）",
-        [Strings.eInputTradExpVQuestion]: "输入每次迭代除数（≥1）",
-        [Strings.eInputTradExpVMQuestion]: "输入每次迭代乘数（>0，≤1）",
-        [Strings.eInputTradExpPQuestion]: "输入每秒迭代次数（>0）",
-        [Strings.eInputLagrangeCXSecQuestion]: "输入控制点横坐标（秒）",
-        [Strings.eInputLagrangeCXQuestion]: "输入控制点横坐标（帧）",
-        [Strings.eInputLagrangeCYQuestion]: "输入控制点纵坐标",
+        [Strings.eInputPowerNQuestion]: "更改幂函数指数（≥0）",
+        [Strings.eInputExpNQuestion]: "更改指数缓动陡峭程度（>0）",
+        [Strings.eInputElasticMQuestion]: "更改弹簧缓动摆动次数（>0）",
+        [Strings.eInputElasticNQuestion]: "更改弹簧缓动陡峭程度（>0）",
+        [Strings.eInputBackSQuestion]: "更改回弹幅度（≥0）",
+        [Strings.eInputTradExpVQuestion]: "更改每次迭代除数（>1）",
+        [Strings.eInputTradExpVMQuestion]: "更改每次迭代乘数（>0，<1）",
+        [Strings.eInputTradExpPQuestion]: "更改每秒迭代次数（>0）",
+        [Strings.eInputLagrangeCXSecQuestion]: "更改控制点横坐标（秒）",
+        [Strings.eInputLagrangeCXQuestion]: "更改控制点横坐标（帧）",
+        [Strings.eInputLagrangeCYQuestion]: "更改控制点纵坐标",
+
+        [Strings.eTUINamePxPy]: "坐标",
+        [Strings.eTUINameS]: "大小",
+        [Strings.eTUINameSxSy]: "拉伸",
+        [Strings.eTUINameSq]: "挤压",
+        [Strings.eTUINameD]: "方向",
+        [Strings.eTUINameCos]: "造型",
+        [Strings.eTUINameCreateNewTValueType]: "新建属性",
+
+        [Strings.eDefaultTValueTypeName]: "属性",
+        [Strings.eNewTValueTypeQuestion]: "新建属性",
+
+        [Strings.ePUISpriteName]: "角色名称：[SpriteName]",
+        [Strings.ePUISpriteNameQuestion]: "预览角色名称",
+        [Strings.ePUICostumeName0]: "造型前缀：[CostumeName0]",
+        [Strings.ePUICostumeName0Question]: "预览造型前缀",
+        [Strings.ePUICostumeName1]: "造型名称：[CostumeName1]",
+        [Strings.ePUICostumeName1Question]: "预览造型名称（此值会覆盖动画值“造型”）",
+        [Strings.ePUICostumeName2]: "造型后缀：[CostumeName2]",
+        [Strings.ePUICostumeName2Question]: "预览造型后缀",
 
         [Strings.tanimMenuPlaceholder]: "- 未创建动画 -",
     } as const,
@@ -382,13 +430,15 @@ const InputEaseParamQuestionStrings = {
     "lagrangeCY": Strings.eInputLagrangeCYQuestion,
 };
 
+// #endregion
+
 // #region 数学和插值
 
-let { exp, pow, PI, sin, cos, atan2, sqrt, abs, max, min, log, log2, log10, sign } = Math;
+let { exp, pow, PI, sin, cos, atan2, sqrt, abs, max, min, log, log2, log10, sign, SQRT2 } = Math;
 
 /** 对一个数字四舍五入，最多保留n位小数 */
 function round(x: number, n: number = 0): number {
-    let m = 10 ** n;
+    let m = 10 ** max(n, 0);
     return Math.round(x * m) / m;
 }
 
@@ -406,8 +456,8 @@ function ceil(x: number, n: number = 0): number {
 
 function getSafeCommentID(base: string): string {
     let ids = [];
-    for (let i in vm.runtime.targets) {
-        let t = vm.runtime.targets[i];
+    for (let i in runtime.targets) {
+        let t = runtime.targets[i];
         for (let j in t.comments) {
             ids.push(t.comments[j].id);
         }
@@ -418,8 +468,16 @@ function getSafeCommentID(base: string): string {
     return base + i;
 }
 
+/** 注：如果 b < a，则返回 a */
 function clamp(x: number, a: number, b: number) {
     return max(a, min(x, b));
+}
+
+/** 将 (x1, y1) 旋转到 (x2, y2) 的方向 */
+function rotateVectorToDirection(x1: number, y1: number, x2: number, y2: number): [number, number] {
+    let l1 = Math.sqrt(x1 * x1 + y1 * y1);
+    let l2 = Math.sqrt(x2 * x2 + y2 * y2);
+    return [l1 * x2 / l2, l1 * y2 / l2];
 }
 
 /**
@@ -433,11 +491,11 @@ function positiveMod(x: number, n: number) {
 }
 
 function sqToSqx(sq: number) {
-    return sq > 0 ? (100 + sq) / 100 : 100 / (100 - sq);
+    return sq > 0 ? 100 / (100 + sq) : (100 - sq) / 100;
 }
 
 function sqToSqy(sq: number) {
-    return sq > 0 ? 100 / (100 + sq) : (100 - sq) / 100;
+    return sq > 0 ? (100 + sq) / 100 : 100 / (100 - sq);
 }
 
 /** 一系列插值函数，有的是我自己写的，有的是上网找的。
@@ -601,6 +659,8 @@ class InterpolationFunctions {
 
 
 
+// #region 核心
+
 type TValue = number | string;
 type EaseParamValue = number | EaseType | BezierHandleType;
 type EaseParams = {[key: string]: EaseParamValue} | null;
@@ -708,7 +768,7 @@ const DefaultTValues: {[key: string]: TValue} = {
     [DefaultTValueType.sqy]: 1,
     [DefaultTValueType.d]: 90,
     [DefaultTValueType.cos]: "",
-};
+} as const;
 
 /** 如果一个动画值是空值，则返回其默认值 */
 function safeTValue(tValue: TValue | null | undefined, tValueType: string): TValue {
@@ -718,6 +778,10 @@ function safeTValue(tValue: TValue | null | undefined, tValueType: string): TVal
 
 /** 快照，即一系列动画值的集合。可以理解为 transform。 */
 type Snapshot = {[key: string]: TValue};
+
+function getSnapshotValue(snapshot: Snapshot, tValueType: string): TValue {
+    return safeTValue(snapshot[tValueType], tValueType);
+}
 
 /** 用于在注释中标识保存数据的标记 */
 const enum SavedataMarks {
@@ -789,126 +853,29 @@ class Keyframe {
 
     setParam(key: EaseParamType, value: EaseParamValue) {
         if (!this.params) this.params = {};
-        this.params[key] = value;
-    }
-
-    /** 对齐贝塞尔手柄，main 一方会尽可能保持不变，主要改变另一方 */
-    alignBezierHandle(left: Keyframe | null, right: Keyframe | null, handleType: BezierHandleType | null = null, main: "left" | "right" = "left"): void {
-        let cxLeft = left?.getParam("bezierCX2") as number;
-        let cyLeft = left?.getParam("bezierCY2") as number;
-        let cxRight = this.getParam("bezierCX1") as number;
-        let cyRight = this.getParam("bezierCY1") as number;
-        let isHasLeftHandle = left && left.interType == InterType.bezier && typeof cxLeft == "number" && typeof cyLeft == "number";
-        let isHasRightHandle = right && this.interType == InterType.bezier && typeof cxRight == "number" && typeof cyRight == "number";
-        handleType ??= this.getParam("bezierHandleType") as BezierHandleType;
-
-        switch (handleType) {
-            case BezierHandleType.aligned:
-            case BezierHandleType.free:
-                if (isHasLeftHandle && left) { // 这里的 && left 是为了糊弄 ts 这个傻逼类型检查。。。
-                    if (cxLeft < left.x - this.x || 0 < cxLeft) {
-                        cxLeft = clamp(cxLeft, left.x - this.x, 0);
-                        left.setParam("bezierCX2", cxLeft);
-                        console.log(left.x - this.x);
-                        return this.alignBezierHandle(left, right, handleType, "left");
-                    }
-                }
-                if (isHasLeftHandle && right) {
-                    if (cxRight < 0 || right.x - this.x < cxRight) {
-                        cxRight = clamp(cxRight, 0, right.x - this.x);
-                        this.setParam("bezierCX1", cxRight);
-                        console.log(right.x - this.x);
-                        return this.alignBezierHandle(left, right, handleType, "right");
-                    }
-                }
-                if (handleType == BezierHandleType.free) break;
-                if (isHasLeftHandle && isHasRightHandle && left && right) {
-                    // 在两根手柄之间对齐
-                    if (main == "left") {
-                        // 右手柄向左对齐
-                        let l = sqrt(cxRight * cxRight + cyRight * cyRight);
-                        let d = atan2(cyLeft, cxLeft) + PI;
-                        cxRight = l * cos(d);
-                        cyRight = l * sin(d);
-                    } else {
-                        // 左手柄向右对齐
-                        let l = sqrt(cxLeft * cxLeft + cyLeft * cyLeft);
-                        let d = atan2(cyRight, cxRight) + PI;
-                        cxLeft = l * cos(d);
-                        cyLeft = l * sin(d);
-                    }
-                }
+        if (Number.isNaN(value)) return;
+        switch (key) {
+            case "powerN":
+            case "backS":
+                // 大于等于 0 的参数
+                if (typeof value != "number") return;
+                value = max(value, 0);
                 break;
-            case BezierHandleType.vector:
-                cxLeft = 0;
-                cyLeft = 0;
-                cxRight = 0;
-                cyRight = 0;
+            case "expN":
+            case "elasticM":
+            case "elasticN":
+            case "tradExpP":
+                // 大于 0 的参数
+                if (typeof value != "number") return;
+                if (value <= 0) value = 0.0001;
                 break;
-            case BezierHandleType.auto:
-                if (!isHasLeftHandle && isHasRightHandle && right) {
-                    // mid 位于最左端
-                    cxRight = (right.x - this.x) / 3;
-                    cyRight = 0;
-                    break;
-                }
-                if (isHasLeftHandle && !isHasRightHandle && left) {
-                    // mid 位于最右端
-                    cxLeft = (left.x - this.x) / 3;
-                    cyLeft = 0;
-                    break;
-                }
-                if (!left || !right) break;
-                if (
-                    typeof left.y != "number" ||
-                    typeof this.y != "number" ||
-                    typeof right.y != "number"
-                ) break;
-                cxLeft = (left.x - this.x) / 3;
-                cxRight = (right.x - this.x) / 3;
-                let dx = cxRight - cxLeft;
-                if (dx == 0) {
-                    // 三点共竖线，理论上讲这种情况不合法
-                    cyLeft = 0;
-                    cyRight = 0;
-                    break;
-                }
-                if (sign(right.y - this.y) == sign(left.y - this.y)) {
-                    // 凸或者凹，手柄是平的
-                    cyLeft = 0;
-                    cyRight = 0;
-                    break;
-                }
-                let dy = (right.y - left.y) / 2;
-                if (dy == 0) {
-                    // 三点共横线
-                    cyLeft = 0;
-                    cyRight = 0;
-                    break;
-                }
-                // 至此，手柄的四个值都不为0
-                let yMin = min(left.y, right.y) - this.y;
-                let yMax = max(left.y, right.y) - this.y;
-                let k = dy / dx;
-                cyLeft = k * cxLeft;
-                cyRight = k * cxRight;
-                if (yMin > cyLeft || cyLeft > yMax) {
-                    k = clamp(cyLeft, yMin, yMax) / cxLeft;
-                    cyLeft = k * cxLeft;
-                    cyRight = k * cxRight;
-                }
-                if (yMin > cyRight || cyRight > yMax) {
-                    k = clamp(cyRight, yMin, yMax) / cxRight;
-                    cyLeft = k * cxLeft;
-                    cyRight = k * cxRight;
-                }
+            case "tradExpV":
+                // 大于 1 的参数
+                if (typeof value != "number") return;
+                if (value <= 1) value = 1.0001;
                 break;
         }
-
-        left?.setParam("bezierCX2", cxLeft);
-        left?.setParam("bezierCY2", cyLeft);
-        this.setParam("bezierCX1", cxRight);
-        this.setParam("bezierCY1", cyRight);
+        this.params[key] = value;
     }
 
     static Ease(x: number, left: Keyframe, right: Keyframe): TValue {
@@ -1142,20 +1109,6 @@ class Timeline {
         this.keyframes.length = 0;
         this.keyframes.push(...indexedKeyframes.map(item => item.keyframe));
     }
-
-    /** from 到 to 左闭右开 */
-    alignBezierHandleKeyframes(from: number | null = null, to: number | null = null) {
-        from ??= 0;
-        to ??= this.keyframes.length;
-        for (let i = from; i < to; i ++) {
-            let keyframe = this.keyframes[i];
-            if (keyframe.interType != InterType.bezier && this.keyframes[i - 1]?.interType != InterType.bezier) continue;
-            let leftKeyframe = (this.keyframes[i - 1] ?? null) as Keyframe | null;
-            let rightKeyframe = (this.keyframes[i + 1] ?? null) as Keyframe | null;
-
-            keyframe.alignBezierHandle(leftKeyframe, rightKeyframe);
-        }
-    }
 }
 
 /** 一个动画，包含许多动画属性，每个属性对应一个时间轴 */
@@ -1260,13 +1213,23 @@ class Tanim {
         let snapshot: Snapshot = {};
         time = this.getTime(time, timeUnit, loopMode);
         for (let timeline of this.timelines) {
-            snapshot[timeline.tValueType] = timeline.getTValueByFrame(time);
+            let tValue = timeline.getTValueByFrame(time)
+            snapshot[timeline.tValueType] = tValue;
+            if (timeline.tValueType == DefaultTValueType.sq) {
+                if (typeof tValue == "string") {
+                    snapshot[DefaultTValueType.sqx] = 1;
+                    snapshot[DefaultTValueType.sqy] = 1;
+                } else {
+                    snapshot[DefaultTValueType.sqx] = sqToSqx(tValue);
+                    snapshot[DefaultTValueType.sqy] = sqToSqy(tValue);
+                }
+            }
         }
         return snapshot;
     }
 
     getSafeTValueType(tValueType: string): string {
-        let tValueTypes = this.timelines.map(timeline => timeline?.tValueType).concat(DefaultTValueNames);
+        let tValueTypes = this.timelines.map(timeline => timeline.tValueType).concat(DefaultTValueNames);
         while (tValueTypes.includes(tValueType) || DefaultTValues[tValueType] !== undefined) {
             tValueType = incrementSuffix(tValueType);
         }
@@ -1340,15 +1303,11 @@ class TanimManager {
     }
 
     getContextValue(tValueType: string): TValue {
-        return safeTValue(this.context[tValueType], tValueType);
+        return getSnapshotValue(this.context, tValueType);
     }
 
     getSnapshotByIndex(index: number): Snapshot | null {
         return this.snapshots[index] ?? null;
-    }
-
-    getSnapshotValue(snapshot: Snapshot, tValueType: string): TValue {
-        return safeTValue(snapshot[tValueType], tValueType);
     }
 
     transitSnapshot(snapshotA: Snapshot, snapshotB: Snapshot, t: number): Snapshot {
@@ -1357,8 +1316,8 @@ class TanimManager {
         for (let tValueType in new Set([...Object.keys(snapshotA), ...Object.keys(snapshotB)])) {
             if (tValueType == DefaultTValueType.sqx || tValueType == DefaultTValueType.sqy) {
                 // 挤压倍数有特殊的插值方式：对挤压进行插值，并算出插值后的挤压倍数
-                let sqa = safeTValue(snapshotA[DefaultTValueType.sq], DefaultTValueType.sq);
-                let sqb = safeTValue(snapshotB[DefaultTValueType.sq], DefaultTValueType.sq);
+                let sqa = getSnapshotValue(snapshotA, DefaultTValueType.sq);
+                let sqb = getSnapshotValue(snapshotB, DefaultTValueType.sq);
                 if (typeof sqa == "string" || typeof sqb == "string") {
                     continue;
                 }
@@ -1370,8 +1329,8 @@ class TanimManager {
                 }
             } else {
                 // 大部分属性的插值方式
-                let va = safeTValue(snapshotA[tValueType], tValueType);
-                let vb = safeTValue(snapshotB[tValueType], tValueType);
+                let va = getSnapshotValue(snapshotA, tValueType);
+                let vb = getSnapshotValue(snapshotB, tValueType);
                 if (typeof va == "string" || typeof vb == "string") {
                     result[tValueType] = t <= 0.5 ? va : vb;
                 } else {
@@ -1428,6 +1387,8 @@ class TanimManager {
 }
 
 let TheTanimManager: TanimManager = new TanimManager([]);
+
+// #endregion
 
 type CostumeNames = [string, string, string];
 type Marks = {[key: number]: string};
@@ -1591,6 +1552,7 @@ function stringToHSL(str: string, saturation: number, lightness: number, alpha: 
 function tValueTypeToHSL(tValueType: string, saturation: number, lightness: number, alpha: number = 100) {
     let hue;
     switch (tValueType) {
+        case `${DefaultTValueType.px}|${DefaultTValueType.py}`:
         case DefaultTValueType.px:
             hue = 210;
             break;
@@ -1598,22 +1560,28 @@ function tValueTypeToHSL(tValueType: string, saturation: number, lightness: numb
             hue = 260;
             break;
         case DefaultTValueType.s:
-            hue = 330;
+            hue = 310;
             break;
+        case `${DefaultTValueType.sx}|${DefaultTValueType.sy}`:
         case DefaultTValueType.sx:
             hue = 0;
             break;
         case DefaultTValueType.sy:
-            hue = 25;
+            hue = 35;
             break;
         case DefaultTValueType.sq:
-            hue = 60;
+            hue = 65;
+            lightness -= 10;
             break;
         case DefaultTValueType.d:
-            hue = 90;
+            hue = 105;
+            lightness -= 5;
             break;
         case DefaultTValueType.cos:
-            hue = 140;
+            hue = 160;
+            break;
+        case  "__CreateNewTimeline__":
+            hue = 190;
             break;
         default:
             let hash = 0;
@@ -1634,7 +1602,7 @@ function tValueTypeToHSL(tValueType: string, saturation: number, lightness: numb
 
 function findSavedataComment(): ScratchComment | null {
     try {
-        let comments = vm.runtime.targets[0].comments;
+        let comments = runtime.targets[0].comments;
 
         for (let id in comments) {
             let txt = comments[id].text;
@@ -1657,7 +1625,7 @@ function findSavedataComment(): ScratchComment | null {
 function getJSONSrcFromComment(): string | null {
     let JSONSrc = null;
     try {
-        let comments = vm.runtime.targets[0].comments;
+        let comments = runtime.targets[0].comments;
 
         for (let id in comments) {
             let txt = comments[id].text;
@@ -1719,7 +1687,7 @@ function getJSONSrcFromSavedata(tanimManager: TanimManager, tanimEditorConfigs: 
 }
 
 /** 将一份字符串形式的数据存储到注释中 */
-function saveJSONSrcToComment(JSONSrc: string) {
+function saveJSONSrcToComment(JSONSrc: string, emitProjectChanged: boolean = true) {
     let d = new Date();
     let dateStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`;
     let commentStr = `此处是“时间轴动画”扩展的存储数据。可以移动、缩放或折叠此注释，但不要手动修改此注释的内容，除非你知道你在做什么。
@@ -1730,15 +1698,15 @@ ${SavedataMarks.head}${JSONSrc}${SavedataMarks.tail}`;
     if (comment) {
         comment.text = commentStr;
     } else {
-        vm.runtime.targets[0].createComment(getSafeCommentID("_EasyTanimBackup"), null, commentStr, 500, 0, 450, 300, false);
+        runtime.targets[0].createComment(getSafeCommentID("_EasyTanimBackup"), null, commentStr, 500, 0, 450, 300, false);
         Warn("将动画数据保存到注释中时，没有找到已保存的动画数据，已创建新注释。");
     }
-    vm.runtime.emit("PROJECT_CHANGED");
+    if (emitProjectChanged) runtime.emit("PROJECT_CHANGED");
 }
 
 /** 将动画数据保存到注释中 */
-function saveData() {
-    saveJSONSrcToComment(getJSONSrcFromSavedata(TheTanimManager, TheTanimEditorConfigs));
+function saveData(emitProjectChanged: boolean = true) {
+    saveJSONSrcToComment(getJSONSrcFromSavedata(TheTanimManager, TheTanimEditorConfigs), emitProjectChanged);
 }
 
 function autoLoadData(isAlertError: boolean) {
@@ -1757,7 +1725,7 @@ function autoLoadData(isAlertError: boolean) {
 
         let d = new Date();
         let dateStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`;
-        vm.runtime.targets[0].createComment(getSafeCommentID("_EasyTanimBackup"), null, 
+        runtime.targets[0].createComment(getSafeCommentID("_EasyTanimBackup"), null, 
 `⚠️⚠️⚠️时间轴动画 错误⚠️⚠️⚠️
 ⚠️⚠️⚠️EASY TANIM ERROR⚠️⚠️⚠️
 ${dateStr}
@@ -1777,7 +1745,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
     TheTanimManager = parsedTanimManager;
 }
 
-vm.runtime.on("PROJECT_LOADED", () => autoLoadData(true));
+runtime.on("PROJECT_LOADED", () => autoLoadData(true));
 
 // #endregion
 
@@ -1817,8 +1785,10 @@ const enum MouseDragType {
     timelineScroll,
     timelineScrollX,
     moveKeyframe,
+    moveKeyframeHandle,
     boxSelectKeyframe,
     endTime,
+    movePreviewCamera,
 }
 
 type HoverKeyword = "default"|
@@ -1826,8 +1796,10 @@ type HoverKeyword = "default"|
 "newTanim"|"tanimScroll"|"tanimList"|"layerScroll"|"layerList"|
 "keyframeBar"|"kui"|InterType|EaseParamType|EaseParamValue|
 "controlBar"|
-"timeline"|"main"|"mark"|"ruler"|"scrollX"|"scrollLeft"|"scrollRight"|"sideRuler"|"tValueCurve"|"keyframe"|"endTime"|
-"preview"|
+"timeline"|"main"|"mark"|"ruler"|"scrollX"|"scrollLeft"|"scrollRight"|"sideRuler"|"tValueCurve"|"keyframe"|"handle"|"endTime"|
+"tValueNameBar"|"tui"|
+"undo"|"redo"|
+"preview"|"pui"|
 "border"|"r"|"b"|"l"|"t"|"lb"|"rb"|"lt"|"rt"|
 "innerBorder"|"l"|"r"|"b"|"layer";
 
@@ -1841,6 +1813,10 @@ type CursorType = "auto"|"default"|"none"|
 "zoom-in"|"zoom-out";
 
 type Hover = (HoverKeyword | number)[];
+
+type HoverHandleType = "powerN" | "expN" | "elastic" | "backS" | "tradExpV" | "lagrangeC" | "bezierC1" | "bezierC2";
+
+type HoverHandle = {timeline: Timeline, keyframe: Keyframe, keyframeIndex: number, type: HoverHandleType};
 
 // #endregion
 
@@ -2051,6 +2027,57 @@ const KUIInterTypeTable = [
 
 // #endregion
 
+// #region PUI
+
+/** PUI = Preview Bar UI */
+const enum PUIType {
+    /** 文本 */
+    label,
+    /** 角色名称 */
+    spriteName,
+    /** 造型名称前缀 */
+    costumeName0,
+    /** 造型名称中间 */
+    costumeName1,
+    /** 造型名称后缀 */
+    costumeName2,
+    /** 放大 */
+    zoomIn,
+    /** 缩小 */
+    zoomOut,
+    /** 重设位置和缩放 */
+    resetCamera,
+    /** 是否显示动画值手柄，拖动这个手柄可以编辑关键帧 */
+    showHandle,
+}
+
+class PUI {
+    type: PUIType;
+    x: number;
+    y: number;
+    size: {
+        w: number,
+        h: number,
+    };
+    text?: Strings;
+
+    constructor(
+        type: PUIType,
+        x: number,
+        y: number,
+        { w, h }: { w: number, h: number },
+        text?: Strings
+    ) {
+        this.type = type;
+        this.x = x;
+        this.y = y;
+        this.size = { w, h };
+        if (text) this.text = text;
+    }
+}
+
+// #endregion
+
 
 
 /** 这玩意看起来是个枚举，其实我把它当宏使的…… */
@@ -2064,6 +2091,8 @@ const enum EdConst {
     timelineFont = '12px "MicrosoftYaHei", "Microsoft YaHei", "微软雅黑", STXihei, "华文细黑", Arial, sans-serif',
     markFont = '14px "MicrosoftYaHei", "Microsoft YaHei", "微软雅黑", STXihei, "华文细黑", Arial, sans-serif',
     kuiFont = '14px "MicrosoftYaHei", "Microsoft YaHei", "微软雅黑", STXihei, "华文细黑", Arial, sans-serif',
+    tuiFont = '14px "MicrosoftYaHei", "Microsoft YaHei", "微软雅黑", STXihei, "华文细黑", Arial, sans-serif',
+    puiFont = '14px "MicrosoftYaHei", "Microsoft YaHei", "微软雅黑", STXihei, "华文细黑", Arial, sans-serif',
 
     headerWidth = 240,
     headerHeight = 30,
@@ -2074,16 +2103,19 @@ const enum EdConst {
     timelineBarHeight = 200,
     timelineMarkHeight = 20,
     timelineRulerHeight = 20,
-    timelineSideRulerWidth = 20,
+    timelineSideRulerWidth = 25,
     //timelineScrollWidth = 20, // 暂时不做纵向滚动条
     timelineScrollHeight = 25,
-    rightBarWidth = 250,
+    timelineKeyframeSize = 10,
+    timelineHandleSize = 5,
+    rightBarWidth = 200,
     layerBarHeight = 100,
     controlBarHeight = 50,
     hintBarHeight = 50,
     keyframeBarHeight = 200,
 
     leftBarWidthMin = 60,
+    leftBarWidthMax = 200,
     timelineBarHeightMin = 90,
     rightBarWidthMin = 180,
     layerBarHeightMin = 70,
@@ -2105,16 +2137,24 @@ const enum EdConst {
 
     timelineScaleBase = 1.25,
     timelineMinScalePowX = -30,
-    timelineMaxScalePowX = 15,
+    timelineMaxScalePowX = 30,
     timelineMinScalePowY = -20,
     timelineMaxScalePowY = 40,
-    timelineKeyframeSize = 10,
-    timelineBezierHandleSize = 5,
 
     kuiSpacing = 5,
     kuiLineHeight = 20,
     kuiLineSpacingLarge = 8,
     kuiLineSpacingSmall = 4,
+
+    tuiHeight = 60,
+    undoSize = 30,
+
+    puiPaddingX = 5,
+    puiPaddingY = 5,
+    puiLineHeight = 20,
+    puiSpacing = 5,
+    puiZoomSize = 24,
+    puiZoomSpacing = 5,
 }
 
 const DefaultTValueNames = [
@@ -2173,11 +2213,13 @@ abstract class EditCommand {
 }
 
 class AddTimelineCommand extends EditCommand {
+    editor: TanimEditor;
     tanim: Tanim;
     timeline: Timeline;
 
-    constructor(tanim: Tanim, timeline: Timeline) {
+    constructor(editor: TanimEditor, tanim: Tanim, timeline: Timeline) {
         super();
+        this.editor = editor;
         this.tanim = tanim;
         this.timeline = timeline;
     }
@@ -2188,6 +2230,10 @@ class AddTimelineCommand extends EditCommand {
             return;
         }
         this.tanim.timelines.push(this.timeline);
+        let tValueType = this.timeline.tValueType;
+        if (DefaultTValues[tValueType] === undefined && !DefaultTValueNames.includes(tValueType)) {
+            this.editor.tValueNames.push(tValueType);
+        }
     }
 
     undo(): void {
@@ -2197,17 +2243,24 @@ class AddTimelineCommand extends EditCommand {
         }
         let idx = this.tanim.timelines.indexOf(this.timeline);
         this.tanim.timelines.splice(idx, 1);
+        let tValueType = this.timeline.tValueType;
+        if (DefaultTValues[tValueType] === undefined && !DefaultTValueNames.includes(tValueType)) {
+            let idx = this.editor.tValueNames.indexOf(tValueType);
+            if (idx != -1) this.editor.tValueNames.splice(idx, 1);
+        }
     }
 }
 
 class RenameTimelineCommand extends EditCommand {
+    editor: TanimEditor;
     tanim: Tanim;
     timeline: Timeline;
     oldTValueType: string;
     newTValueType: string;
 
-    constructor(tanim: Tanim, timeline: Timeline, newTValueType: string) {
+    constructor(editor: TanimEditor, tanim: Tanim, timeline: Timeline, newTValueType: string) {
         super();
+        this.editor = editor;
         this.tanim = tanim;
         this.timeline = timeline;
         this.oldTValueType = timeline.tValueType;
@@ -2215,20 +2268,22 @@ class RenameTimelineCommand extends EditCommand {
     }
 
     do(): void {
-        this.timeline.rename(this.tanim.getSafeTValueType(this.newTValueType));DefaultTValues
+        if (this.newTValueType !== this.timeline.tValueType) this.timeline.rename(this.tanim.getSafeTValueType(this.newTValueType));
     }
 
     undo(): void {
-        this.timeline.rename(this.tanim.getSafeTValueType(this.oldTValueType));
+        if (this.oldTValueType !== this.timeline.tValueType) this.timeline.rename(this.tanim.getSafeTValueType(this.oldTValueType));
     }
 }
 
 class RemoveTimelineCommand extends EditCommand {
+    editor: TanimEditor;
     tanim: Tanim;
     timeline: Timeline;
 
-    constructor(tanim: Tanim, timeline: Timeline) {
+    constructor(editor: TanimEditor, tanim: Tanim, timeline: Timeline) {
         super();
+        this.editor = editor;
         this.tanim = tanim;
         this.timeline = timeline;
     }
@@ -2240,6 +2295,11 @@ class RemoveTimelineCommand extends EditCommand {
             return;
         }
         this.tanim.timelines.splice(idx, 1);
+        let tValueType = this.timeline.tValueType;
+        if (DefaultTValues[tValueType] === undefined && !DefaultTValueNames.includes(tValueType)) {
+            let idx = this.editor.tValueNames.indexOf(tValueType);
+            if (idx != -1) this.editor.tValueNames.splice(idx, 1);
+        }
     }
 
     undo(): void {
@@ -2248,6 +2308,10 @@ class RemoveTimelineCommand extends EditCommand {
             return;
         }
         this.tanim.timelines.push(this.timeline);
+        let tValueType = this.timeline.tValueType;
+        if (DefaultTValues[tValueType] === undefined && !DefaultTValueNames.includes(tValueType)) {
+            this.editor.tValueNames.push(tValueType);
+        }
     }
 }
 
@@ -2433,6 +2497,11 @@ class EditAKeyframeCommand extends EditCommand {
         }
         this.editKeyframe(this.oldKeyframeCopy);
     }
+
+    update(newKeyframeCopy: Keyframe) {
+        if (this.isDone) this.editKeyframe(newKeyframeCopy);
+        this.newKeyframeCopy = newKeyframeCopy;
+    }
 }
 
 class SelectKeyframesCommand extends EditCommand {
@@ -2506,8 +2575,8 @@ class EditCommandStack {
 
     undo() {
         if (!this.isCanUndo) return;
-        this.undoLength += 1;
         this.top?.undo();
+        this.undoLength += 1;
     }
 
     redo() {
@@ -2521,11 +2590,131 @@ class EditCommandStack {
 
 
 
+// #region 造型管理器
+
+const enum CostumeImageLoadState {
+    idle,
+    loading,
+    done,
+}
+
+type CostumeData = {
+    rotationCenterX: number,
+    rotationCenterY: number,
+    size: [number, number],
+    bitmapResolution: number,
+    uri: string,
+    loadState: CostumeImageLoadState,
+    img: HTMLImageElement,
+};
+/** 一个角色的所有造型 */
+type CostumeManagerSpriteCache = {[key: string]: CostumeData};
+/** 所有角色的所有造型 */
+type CostumeManagerCache = {[key: string]: CostumeManagerSpriteCache};
+
+const TheDefaultCostumeURI = `data:image/svg+xml;base64,PHN2ZyB2ZXJzaW9uPSIxLjEiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyIgeG1sbnM6eGxpbms9Imh0dHA6Ly93d3cudzMub3JnLzE5OTkveGxpbmsiIHdpZHRoPSI2Ni45NzM1NCIgaGVpZ2h0PSIyMy45NjQ0MSIgdmlld0JveD0iMCwwLDY2Ljk3MzU0LDIzLjk2NDQxIj48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMzA4LjAxNzgsLTE2OC4wMTc4KSI+PGcgZGF0YS1wYXBlci1kYXRhPSJ7JnF1b3Q7aXNQYWludGluZ0xheWVyJnF1b3Q7OnRydWV9IiBmaWxsPSJub25lIiBmaWxsLXJ1bGU9Im5vbnplcm8iIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJtaXRlciIgc3Ryb2tlLW1pdGVybGltaXQ9IjEwIiBzdHJva2UtZGFzaGFycmF5PSIiIHN0cm9rZS1kYXNob2Zmc2V0PSIwIiBzdHlsZT0ibWl4LWJsZW5kLW1vZGU6IG5vcm1hbCI+PGcgc3Ryb2tlPSIjMDAwMDAwIiBzdHJva2Utd2lkdGg9IjcuNSI+PHBhdGggZD0iTTM3MS4yNDEzNSwxODAuMDAwMDFsLTguMjMyMiwtOC4yMzIyIi8+PHBhdGggZD0iTTMyMC4wMDAwMSwxODAuMDAwMDFoNTEuMjQxMzMiLz48cGF0aCBkPSJNMzExLjc2NzgxLDE3MS43Njc4MWwxNi40NjQ0MSwxNi40NjQ0MSIvPjxwYXRoIGQ9Ik0zMTEuNzY3ODEsMTg4LjIzMjIybDE2LjQ2NDQxLC0xNi40NjQ0MSIvPjwvZz48ZyBzdHJva2Utd2lkdGg9IjIuNSI+PHBhdGggZD0iTTM3MS4yNDEzNSwxODAuMDAwMDFsLTguMjMyMjEsLTguMjMyMjEiIHN0cm9rZT0iIzNkZjIzZCIvPjxwYXRoIGQ9Ik0zNzEuMjQxMzUsMTgwLjAwMDAxIiBzdHJva2U9IiM0ZGZmNGQiLz48cGF0aCBkPSJNMzIwLjAwMDAxLDE4MC4wMDAwMWg1MS4yNDEzMyIgc3Ryb2tlPSIjNGQ0ZGZmIi8+PHBhdGggZD0iTTMxMS43Njc4MSwxNzEuNzY3ODFsMTYuNDY0NDEsMTYuNDY0NDEiIHN0cm9rZT0iI2ZmNGQ0ZCIvPjxwYXRoIGQ9Ik0zMTEuNzY3ODEsMTg4LjIzMjIybDE2LjQ2NDQxLC0xNi40NjQ0MSIgc3Ryb2tlPSIjZmY0ZDRkIi8+PC9nPjwvZz48L2c+PC9zdmc+`;
+
+const TheDefaultCostumeData: CostumeData = {
+    rotationCenterX: 11.98219499999999,
+    rotationCenterY: 11.98219499999999,
+    size: [66.97354125976562, 23.96441078186035],
+    bitmapResolution: 1,
+    uri: TheDefaultCostumeURI,
+    loadState: CostumeImageLoadState.loading,
+    img: new Image(),
+}
+TheDefaultCostumeData.img.src = TheDefaultCostumeURI;
+TheDefaultCostumeData.img.addEventListener("load", () => TheDefaultCostumeData.loadState = CostumeImageLoadState.done);
+
+/** 用于管理绘制到预览区的 Scratch 造型 */
+class CostumeManager {
+    cache: CostumeManagerCache;
+
+    constructor() {
+        this.cache = {};
+        this.update();
+        runtime.on("PROJECT_LOADED", () => this.update());
+        runtime.on("PROJECT_CHANGED", () => this.update());
+    }
+
+    update() {
+        let newCache: CostumeManagerCache = {};
+
+        let sprites = new Set<Sprite>();
+        for (let target of runtime.targets) {
+            sprites.add(target.sprite);
+        }
+        for (let sprite of sprites) {
+            let spriteName = sprite.name;
+            let costumes = sprite.costumes;
+            let spriteCache: CostumeManagerSpriteCache = {};
+            for (let costume of costumes) {
+                let costumeName = costume.name;
+                if (typeof costume.name == "string") {
+                    let uri = costume.asset.encodeDataURI();
+                    if (uri == this.cache?.[spriteName]?.[costumeName]?.uri) {
+                        spriteCache[costumeName] = this.cache[spriteName][costumeName];
+                    } else {
+                        let img = new Image();
+                        img.src = uri;
+                        let data: CostumeData = {
+                            rotationCenterX: costume.rotationCenterX,
+                            rotationCenterY: costume.rotationCenterY,
+                            size: costume.size,
+                            bitmapResolution: costume.bitmapResolution,
+                            uri,
+                            loadState: CostumeImageLoadState.idle,
+                            img,
+                        };
+                        spriteCache[costumeName] = data;
+                    }
+                }
+            }
+            newCache[spriteName] = spriteCache;
+        }
+
+        this.cache = newCache;
+    }
+
+    getCostumeData(spriteName: string, costumeName: string): CostumeData {
+        let editingTarget, editingSpriteName;
+        let spriteData = this.cache[spriteName] as CostumeManagerSpriteCache | undefined;
+        if (spriteData === undefined) {
+            editingTarget = runtime.getEditingTarget();
+            editingSpriteName = editingTarget?.sprite.name;
+            if (editingSpriteName) spriteData = this.cache[editingSpriteName] as CostumeManagerSpriteCache | undefined;
+            if (spriteData === undefined) return TheDefaultCostumeData;
+        }
+        let costumeData = spriteData[costumeName] as CostumeData | undefined;
+        if (costumeData === undefined) {
+            let target = editingTarget ?? runtime.getSpriteTargetByName(spriteName);
+            let currentCostumeName = target?.getCurrentCostume().name;
+            if (currentCostumeName) costumeData = spriteData[currentCostumeName] as CostumeData | undefined;
+            if (costumeData === undefined) return TheDefaultCostumeData;
+        }
+        if (costumeData?.loadState === CostumeImageLoadState.idle) {
+            costumeData.img.src = costumeData.uri;
+            costumeData.loadState = CostumeImageLoadState.loading;
+            costumeData.img.addEventListener("load", () => costumeData.loadState = CostumeImageLoadState.done);
+        }
+        return costumeData;
+    }
+}
+
+// #endregion
+
+
+
 class TanimEditor {
 
     // #region 编辑器属性
 
     focusTime: number;
+    playTimestamp: number;
+    get playTimeSec(): number {
+        return (Date.now() - this.playTimestamp) / 1000;
+    }
+    isPlaying: boolean;
     tanim: Tanim | null;
     timelines: [null, null] | [Timeline, null] | [Timeline, Timeline];
     tValueNames: string[];
@@ -2542,43 +2731,55 @@ class TanimEditor {
 
     // #region 动画配置
 
-    get spriteName(): string {
-        if (this.tanim) {
-            let tanimConfig = this.configs.tanimConfigs[this.tanim.name];
+    getSpriteName(tanim: Tanim | null) {
+        if (tanim) {
+            let tanimConfig = this.configs.tanimConfigs[tanim.name];
             return tanimConfig?.spriteName ?? "";
         } else {
             return "";
         }
     }
 
-    set spriteName(name: string) {
-        if (this.tanim) {
-            let tanimConfig = this.configs.tanimConfigs[this.tanim.name];
+    setSpriteName(tanim: Tanim | null, name: string) {
+        if (tanim) {
+            let tanimConfig = this.configs.tanimConfigs[tanim.name];
             if (tanimConfig) {
                 tanimConfig.spriteName = name;
             }
         }
     }
 
-    get costumeNames(): CostumeNames {
-        if (this.tanim) {
-            let tanimConfig = this.configs.tanimConfigs[this.tanim.name];
+    getCostumeNames(tanim: Tanim | null): CostumeNames {
+        if (tanim) {
+            let tanimConfig = this.configs.tanimConfigs[tanim.name];
             return tanimConfig?.costumeNames ?? ["", "", ""];
         } else {
             return ["", "", ""];
         }
     }
 
-    get marks(): Marks {
-        if (this.tanim) {
-            let tanimConfig = this.configs.tanimConfigs[this.tanim.name];
+    getMarks(tanim: Tanim | null): Marks {
+        if (tanim) {
+            let tanimConfig = this.configs.tanimConfigs[tanim.name];
             return tanimConfig?.marks ?? {};
         } else {
             return {};
         }
     }
 
+    get marks(): Marks {
+        return this.getMarks(this.tanim);
+    }
+
     // #endregion
+
+    costumeManager: CostumeManager;
+    previewCameraX: number;
+    previewCameraY: number;
+    previewCameraSPow: number;
+    get previewCameraS(): number {
+        return 2 ** this.previewCameraSPow
+    };
 
     isLoop: boolean;
     isYoyo: boolean;
@@ -2713,7 +2914,11 @@ class TanimEditor {
     mouseTimelineX: number;
     mouseTimelineY: number;
 
+    mouseStageX: number;
+    mouseStageY: number;
+
     mouseDragType: MouseDragType;
+    // 下面这一串属性没有固定的意义，有些是我灵活使用的。
     mouseDragX: number;
     mouseDragY: number;
     mouseDragClientX: number;
@@ -2723,6 +2928,9 @@ class TanimEditor {
     mouseDragWidth: number;
     mouseDragHeight: number;
     mouseDragIndex: number;
+    
+    hoveredHandle: HoverHandle | null;
+    mouseDragHandle: HoverHandle | null;
 
     cursor: CursorType;
 
@@ -2735,9 +2943,12 @@ class TanimEditor {
     cuis: CUI[];
     kuis: KUI[];
     kuiState: KUIState;
+    puis: PUI[];
     hover: Hover;
     hoveredKeyframes: Set<Keyframe>;
     selectedKeyframes: Set<Keyframe>;
+
+    TUIScroll: number;
 
     layers: Tanim[];
     foldedTanimFolders: Set<string>;
@@ -2746,8 +2957,11 @@ class TanimEditor {
     commandStack: EditCommandStack;
 
     root: HTMLDivElement;
+    isMouseOnRoot: boolean;
     canvas: HTMLCanvasElement;
     ctx: CanvasRenderingContext2D;
+    stageCanvas: HTMLCanvasElement;
+    stageCtx: CanvasRenderingContext2D;
     /*inputRoot: HTMLDivElement;
     input: HTMLInputElement;*/
 
@@ -2755,6 +2969,8 @@ class TanimEditor {
 
     constructor() {
         this.focusTime = 0;
+        this.playTimestamp = 0;
+        this.isPlaying = false;
         this.tanim = null;
         this.timelines = [null, null];
         this.tValueNames = [...DefaultTValueNames];
@@ -2762,7 +2978,12 @@ class TanimEditor {
         this.mainAxis = 0;
         this.isShowHandle = true;
 
-        this.isLoop = false;
+        this.costumeManager = new CostumeManager();
+        this.previewCameraX = 0;
+        this.previewCameraY = 0;
+        this.previewCameraSPow = 0;
+
+        this.isLoop = true;
         this.isYoyo = false;
 
         this.isShow = false;
@@ -2797,6 +3018,9 @@ class TanimEditor {
         this.mouseTimelineX = 0;
         this.mouseTimelineY = 0;
 
+        this.mouseStageX = 0;
+        this.mouseStageY = 0;
+
         this.mouseDragType = MouseDragType.none;
         this.mouseDragX = 0;
         this.mouseDragY = 0;
@@ -2807,6 +3031,9 @@ class TanimEditor {
         this.mouseDragWidth = 0;
         this.mouseDragHeight = 0;
         this.mouseDragIndex = -1;
+
+        this.hoveredHandle = null;
+        this.mouseDragHandle = null;
 
         this.cursor = "default";
 
@@ -2819,10 +3046,13 @@ class TanimEditor {
         this.cuis = [];
         this.kuis = [];
         this.kuiState = KUIState.params;
+        this.puis = [];
         this.hover = [];
 
         this.hoveredKeyframes = new Set();
         this.selectedKeyframes = new Set();
+
+        this.TUIScroll = 0;
 
         this.layers = [];
         this.foldedTanimFolders = new Set();
@@ -2840,8 +3070,10 @@ class TanimEditor {
         s.zIndex = "200";
         //s.backgroundColor = " #f2f2f2";
         s.padding = "4px";
+        this.isMouseOnRoot = false;
 
         this.canvas = document.createElement("canvas");
+        this.stageCanvas = document.createElement("canvas");
         this.setCanvasSize();
         s = this.canvas.style;
         s.backgroundColor = " #ffffff";
@@ -2852,7 +3084,8 @@ class TanimEditor {
         this.root.appendChild(this.canvas);
 
         this.ctx = this.canvas.getContext("2d") as CanvasRenderingContext2D;
-        if (!this.ctx) {
+        this.stageCtx = this.stageCanvas.getContext("2d") as CanvasRenderingContext2D;
+        if (!this.ctx || !this.stageCtx) {
             Warn("无法获取 Canvas 绘图上下文，动画编辑器将无法正常使用。");
         }
 /*
@@ -2876,6 +3109,9 @@ class TanimEditor {
 */
         document.body.appendChild(this.root);
 
+        this.root.addEventListener("mouseenter", ev => this.isMouseOnRoot = true);
+        this.root.addEventListener("mouseleave", ev => this.isMouseOnRoot = false);
+
         document.addEventListener("mousemove", ev => this.update({mouseEvent: ev}));
         document.addEventListener("mousedown", ev => this.update({mouseEvent: ev}));
         document.addEventListener("mouseup", ev => this.update({mouseEvent: ev}));
@@ -2887,7 +3123,6 @@ class TanimEditor {
         document.addEventListener("keyup", ev => this.update({keyboardEvent: ev}));
 
         this.updateTanimTree();
-        this.update(null);
     }
 
     // #region 编辑器工具方法
@@ -2901,10 +3136,19 @@ class TanimEditor {
 
     /** 默认值为 this.width, this.height */
     setCanvasSize(width?: number, height?: number) {
-        this.canvas.width = width ?? this.width;
-        this.canvas.height = height ?? this.height;
+        this.canvas.width = width ??= this.width;
+        this.canvas.height = height ??= this.height;
+        this.updateStageCanvasSize();
         this.updateCuis();
         this.updateKuis();
+        this.updatePuis();
+    }
+
+    updateStageCanvasSize() {
+        if (!this.isMinimized) {
+            this.stageCanvas.width = this.canvasWidth - this.leftBarWidth - this.rightBarWidth;
+            this.stageCanvas.height = this.canvasHeight - EdConst.headerHeight - EdConst.hintBarHeight - this.timelineBarHeight - EdConst.controlBarHeight;
+        }
     }
 
     toCanvasPosition(x: number, y: number): [number, number] {
@@ -2915,12 +3159,37 @@ class TanimEditor {
             x - left + scrollX,
             y - top + scrollY,
         ];*/
-        return [x - this.left + scrollX - (this.isMinimized ? this.width - this.canvasWidth : 0), y - this.top + scrollY];
+        return [x - this.left - scrollX - (this.isMinimized ? this.width - this.canvasWidth : 0), y - this.top - scrollY];
     }
 
     updateMousePosition() {
         [this.mouseX, this.mouseY] = this.toCanvasPosition(this.mouseClientX, this.mouseClientY);
         this.updateMouseTimelinePosition();
+        this.updateMouseStagePosition();
+    }
+
+    /** 锚点：预览区正中间 */
+    stageToCanvasPosition(x: number, y: number, anchorX?: number, anchorY?: number): [number, number] {
+        anchorX ??= (this.leftBarWidth + this.canvasWidth - this.rightBarWidth) / 2;
+        anchorY ??= (EdConst.headerHeight + this.canvasHeight - EdConst.hintBarHeight - this.timelineBarHeight - EdConst.controlBarHeight) / 2;
+        return [
+            anchorX + (x - this.previewCameraX) * this.previewCameraS,
+            anchorY - (y - this.previewCameraY) * this.previewCameraS
+        ];
+    }
+
+    /** 锚点：预览区正中间 */
+    canvasToStagePosition(x: number, y: number, anchorX?: number, anchorY?: number): [number, number] {
+        anchorX ??= (this.leftBarWidth + this.canvasWidth - this.rightBarWidth) / 2;
+        anchorY ??= (EdConst.headerHeight + this.canvasHeight - EdConst.hintBarHeight - this.timelineBarHeight - EdConst.controlBarHeight) / 2;
+        return [
+            (x - anchorX) / this.previewCameraS + this.previewCameraX,
+            (anchorY - y) / this.previewCameraS + this.previewCameraY
+        ]
+    }
+
+    updateMouseStagePosition() {
+        [this.mouseStageX, this.mouseStageY] = this.canvasToStagePosition(this.mouseX, this.mouseY);
     }
 
     /** 锚点：时间轴左下角（横向滚动条的左上角） */
@@ -2970,6 +3239,7 @@ class TanimEditor {
         ) - this.leftBarWidth;
         this.timelineScrollX += scaleCenter * (1 - EdConst.timelineScaleBase ** -n) / this.timelineScaleX;
         this.timelineScalePowX += n;
+        this.updateMouseTimelinePosition();
     }
 
     scaleTimelineY(n: number) {
@@ -2984,11 +3254,121 @@ class TanimEditor {
         );
         this.timelineScrollY += scaleCenter * (1 - EdConst.timelineScaleBase ** -n) / this.timelineScaleY;
         this.timelineScalePowY += n;
+        this.updateMouseTimelinePosition();
     }
 
     scrollTimeline(x: number, y: number) {
         this.timelineScrollX += x;
         this.timelineScrollY += y;
+        this.updateMouseTimelinePosition();
+    }
+
+    getHandleInfo(timeline: Timeline, keyframeIndex: number): null | {
+        type: InterType.power, keyframe: Keyframe,
+        cx: number, cy: number,
+    } | {
+        type: InterType.exp, keyframe: Keyframe,
+        cx: number, cy: number,
+    } | {
+        type: InterType.elastic, keyframe: Keyframe,
+        cx: number, cy: number, expFn: (time: number) => number,
+    } | {
+        type: InterType.back, keyframe: Keyframe,
+        cx: number, cy: number,
+    } | {
+        type: InterType.tradExp, keyframe: Keyframe,
+        cx: number, cy: number,
+    } | {
+        type: InterType.lagrange, keyframe: Keyframe,
+        cx: number, cy: number,
+    } | {
+        type: InterType.bezier, keyframe: Keyframe, rightKeyframe: Keyframe,
+        handleType: BezierHandleType, rightHandleType: BezierHandleType,
+        x1: number, y1: number, x2: number, y2: number,
+        cx1: number, cy1: number, cx2: number, cy2: number,
+    } {
+        let keyframe = timeline.keyframes[keyframeIndex];
+        let rightKeyframe = timeline.keyframes[keyframeIndex + 1] as Keyframe | undefined;
+        if (!rightKeyframe) return null;
+        if (typeof keyframe.y == "string") return null;
+        if (typeof rightKeyframe.y == "string") return null;
+
+        if (keyframe.interType == InterType.power || keyframe.interType == InterType.exp || keyframe.interType == InterType.tradExp) {
+            let pcx = (keyframe.x + rightKeyframe.x) / 2;
+            let pcy = Keyframe.Ease(pcx, keyframe, rightKeyframe);
+            if (typeof pcy == "string") return null;
+            let [cx, cy] = this.timelineToCanvasPosition(pcx, pcy);
+            return {
+                type: keyframe.interType, keyframe,
+                cx, cy,
+            };
+        } else if (keyframe.interType == InterType.elastic) {
+            let pcx = (keyframe.x + rightKeyframe.x) / 2;
+            let expFn = (time: number) => InterpolationFunctions.InterEase(
+                keyframe.x, keyframe.y as number, rightKeyframe.x, rightKeyframe.y as number, time,
+                keyframe.getParam("easeType") as EaseType,
+                tm => InterpolationFunctions.MapExpIn(tm, keyframe.getParam("elasticN") as number)
+            );
+            let pcy = expFn(pcx);
+            let [cx, cy] = this.timelineToCanvasPosition(pcx, pcy);
+            return {
+                type: keyframe.interType, keyframe,
+                cx, cy, expFn
+            };
+        } else if (keyframe.interType == InterType.back) {
+            let s = keyframe.getParam("backS");
+            if (typeof s != "number") return null;
+            let x0 = (2 * s) / (3 * (s + 1));
+            let y0 = (-4 * s ** 3) / (27 * (s + 1) ** 2);
+            let easeType = keyframe.getParam("easeType");
+            if (easeType == EaseType.out || easeType == EaseType.outIn) {
+                x0 = 1 - x0;
+                y0 = 1 - y0;
+            }
+            if (easeType == EaseType.inOut || easeType == EaseType.outIn) {
+                x0 *= 0.5;
+                y0 *= 0.5;
+            }
+            let pcx = keyframe.x + (rightKeyframe.x - keyframe.x) * x0;
+            let pcy = keyframe.y + (rightKeyframe.y - keyframe.y) * y0;
+            let [cx, cy] = this.timelineToCanvasPosition(pcx, pcy);
+            return {
+                type: InterType.back, keyframe,
+                cx, cy
+            };
+        } else if (keyframe.interType == InterType.lagrange) {
+            let pcx = keyframe.getParam("lagrangeCX");
+            if (typeof pcx != "number") return null;
+            let pcy = keyframe.getParam("lagrangeCY");
+            if (typeof pcy != "number") return null;
+            let [cx, cy] = this.timelineToCanvasPosition((keyframe.x + rightKeyframe.x) / 2 + pcx, (keyframe.y + rightKeyframe.y) / 2 + pcy);
+            return {
+                type: InterType.lagrange, keyframe,
+                cx, cy,
+            };
+        } else if (keyframe.interType == InterType.bezier) {
+            let [x1, y1] = this.timelineToCanvasPosition(keyframe.x, keyframe.y);
+            let [x2, y2] = this.timelineToCanvasPosition(rightKeyframe.x, rightKeyframe.y);
+            let pcx1 = keyframe.getParam("bezierCX1");
+            if (typeof pcx1 != "number") return null;
+            let pcy1 = keyframe.getParam("bezierCY1");
+            if (typeof pcy1 != "number") return null;
+            let pcx2 = keyframe.getParam("bezierCX2");
+            if (typeof pcx2 != "number") return null;BezierHandleType.aligned
+            let pcy2 = keyframe.getParam("bezierCY2");
+            if (typeof pcy2 != "number") return null;
+            let [cx1, cy1] = this.timelineToCanvasPosition(keyframe.x + pcx1, keyframe.y + pcy1);
+            let [cx2, cy2] = this.timelineToCanvasPosition(rightKeyframe.x + pcx2, rightKeyframe.y + pcy2);
+            let handleType = keyframe.getParam("bezierHandleType") as BezierHandleType;
+            let rightHandleType = rightKeyframe.getParam("bezierHandleType") as BezierHandleType;
+            return {
+                type: InterType.bezier, keyframe, rightKeyframe,
+                handleType, rightHandleType,
+                x1, y1, x2, y2,
+                cx1, cy1, cx2, cy2,
+            };
+        }
+        return null;
     }
 
     updateMouseTimelinePosition() {
@@ -3055,6 +3435,7 @@ class TanimEditor {
 
     /** 如果 prompt 的实现是异步的，则返回true，否则返回false */
     ask(message: string | null, default_: string | null, callback: (answer: string | null) => any): boolean {
+        let startTime = Date.now();
         let answer = prompt(
             message ?? undefined,
             default_ ?? undefined
@@ -3065,11 +3446,13 @@ class TanimEditor {
             answer.then(answer => {
                 callback(answer);
                 this.isInputing = false;
+                this.playTimestamp += Date.now() - startTime;
                 this.update(null);
             });
             return true;
         } else {
             callback(answer);
+            this.playTimestamp += Date.now() - startTime;
             return false;
         }
     }
@@ -3161,7 +3544,10 @@ class TanimEditor {
 
     /** 弹出一个确认框，返回用户的选择。此函数已知在 tw 桌面版和 gandi 网页版的实现都是同步的。 */
     confirm(message: string | null): boolean {
-        return confirm(message ?? "");
+        let startTime = Date.now();
+        let result = confirm(message ?? "");
+        this.playTimestamp += Date.now() - startTime;
+        return result;
     }
 
     updateTree(tanimTree: TanimTree, tanimFolders: TanimFolders, tanims: Tanim[], foldedFolders: Set<string>) {
@@ -3305,21 +3691,22 @@ class TanimEditor {
     editTanim(tanim: Tanim | null) {
         if (this.tanim == tanim) return;
         if (tanim && !this.configs.tanimConfigs[tanim.name]) {
-            this.configs.tanimConfigs[tanim.name] = new TanimConfig(this.spriteName, this.costumeNames, {});
+            this.configs.tanimConfigs[tanim.name] = new TanimConfig(this.getSpriteName(this.tanim), this.getCostumeNames(this.tanim), {});
         }
         this.tanim = tanim;
         this.tValueNames = [...DefaultTValueNames];
         if (!tanim) {
             this.selectedKeyframes.clear();
             this.timelines = [null, null];
+            this.isPlaying = false;
             this.updateCuis();
             return;
         }
         // 寻找该动画有哪些非默认动画值
         for (let { tValueType } of tanim.timelines) {
-            if (DefaultTValues[tValueType]) continue;
-            if (DefaultTValueNames.includes(tValueType)) continue;
-            this.tValueNames.push(tValueType);
+            if (DefaultTValues[tValueType] === undefined && !DefaultTValueNames.includes(tValueType)) {
+                this.tValueNames.push(tValueType);
+            }
         }
         if (!this.tValueNames.includes(this.tValueName)) {
             this.tValueName = this.tValueNames[0];
@@ -3355,14 +3742,16 @@ class TanimEditor {
     }
 
     /** 把焦点设为一个时间点 */
-    focus(time: number) {
+    focus(time: number, autoScroll: boolean = true) {
         this.focusTime = round(time);
         let leftTime = this.canvasTotimelinePosition(this.leftBarWidth + 100, 0)[0];
         let rightTime = this.canvasTotimelinePosition(this.canvasWidth - this.rightBarWidth - 100, 0)[0];
-        if (this.focusTime < leftTime) {
-            this.scrollTimeline(this.focusTime - leftTime, 0);
-        } else if (this.focusTime > rightTime) {
-            this.scrollTimeline(this.focusTime - rightTime, 0);
+        if (autoScroll) {
+            if (this.focusTime < leftTime) {
+                this.scrollTimeline(this.focusTime - leftTime, 0);
+            } else if (this.focusTime > rightTime) {
+                this.scrollTimeline(this.focusTime - rightTime, 0);
+            }
         }
         this.updateCuis();
     }
@@ -3550,6 +3939,167 @@ class TanimEditor {
         this.updateLayerTree();
     }
 
+    /** 对齐贝塞尔手柄，main 一方会尽可能保持不变，主要改变另一方 */
+    alignBezier(left: Keyframe | null, mid: Keyframe, right: Keyframe | null, handleType: BezierHandleType | null = null, main: "left" | "right" = "left"): void {
+        let cxLeft = left?.getParam("bezierCX2") as number;
+        let cyLeft = left?.getParam("bezierCY2") as number;
+        let cxRight = mid.getParam("bezierCX1") as number;
+        let cyRight = mid.getParam("bezierCY1") as number;
+        let isHasLeftHandle = left && left.interType == InterType.bezier && typeof cxLeft == "number" && typeof cyLeft == "number";
+        let isHasRightHandle = right && mid.interType == InterType.bezier && typeof cxRight == "number" && typeof cyRight == "number";
+        handleType ??= mid.getParam("bezierHandleType") as BezierHandleType;
+
+        switch (handleType) {
+            case BezierHandleType.aligned:
+            case BezierHandleType.free:
+                if (isHasLeftHandle && left) { // 这里的 && left 是为了糊弄 ts 这个傻逼类型检查。。。
+                    if (cxLeft < left.x - mid.x || 0 < cxLeft) {
+                        cxLeft = clamp(cxLeft, left.x - mid.x, 0);
+                        left.setParam("bezierCX2", cxLeft);
+                        return this.alignBezier(left, mid, right, handleType, "left");
+                    }
+                }
+                if (isHasLeftHandle && right) {
+                    if (cxRight < 0 || right.x - mid.x < cxRight) {
+                        cxRight = clamp(cxRight, 0, right.x - mid.x);
+                        mid.setParam("bezierCX1", cxRight);
+                        return this.alignBezier(left, mid, right, handleType, "right");
+                    }
+                }
+                if (handleType == BezierHandleType.free) break;
+                if (isHasLeftHandle && isHasRightHandle && left && right) {
+                    // 在两根手柄之间对齐
+                    let lLeft = sqrt((cxLeft * this.timelineScaleX) ** 2 + (cyLeft * this.timelineScaleY) ** 2);
+                    let lRight = sqrt((cxRight * this.timelineScaleX) ** 2 + (cyRight * this.timelineScaleY) ** 2);
+                    if (main == "left") {
+                        // 右手柄向左对齐
+                        let r = - lRight / lLeft;
+                        cxRight = r * cxLeft;
+                        cyRight = r * cyLeft;
+                    } else {
+                        // 左手柄向右对齐
+                        let r = - lLeft / lRight;
+                        cxLeft = r * cxRight;
+                        cyLeft = r * cyRight;
+                    }
+                }
+                break;
+            case BezierHandleType.vector:
+                cxLeft = 0;
+                cyLeft = 0;
+                cxRight = 0;
+                cyRight = 0;
+                break;
+            case BezierHandleType.auto:
+                if (!isHasLeftHandle && isHasRightHandle && right) {
+                    // mid 位于最左端
+                    cxRight = (right.x - mid.x) / 3;
+                    cyRight = 0;
+                    break;
+                }
+                if (isHasLeftHandle && !isHasRightHandle && left) {
+                    // mid 位于最右端
+                    cxLeft = (left.x - mid.x) / 3;
+                    cyLeft = 0;
+                    break;
+                }
+                if (!left || !right) break;
+                if (
+                    typeof left.y != "number" ||
+                    typeof mid.y != "number" ||
+                    typeof right.y != "number"
+                ) break;
+                cxLeft = (left.x - mid.x) / 3;
+                cxRight = (right.x - mid.x) / 3;
+                let dx = cxRight - cxLeft;
+                if (dx == 0) {
+                    // 三点共竖线，理论上讲这种情况不合法
+                    cyLeft = 0;
+                    cyRight = 0;
+                    break;
+                }
+                if (sign(right.y - mid.y) == sign(left.y - mid.y)) {
+                    // 凸或者凹，手柄是平的
+                    cyLeft = 0;
+                    cyRight = 0;
+                    break;
+                }
+                let dy = (right.y - left.y) / 2;
+                if (dy == 0) {
+                    // 三点共横线
+                    cyLeft = 0;
+                    cyRight = 0;
+                    break;
+                }
+                // 至此，手柄的四个值都不为0
+                let yMin = min(left.y, right.y) - mid.y;
+                let yMax = max(left.y, right.y) - mid.y;
+                let k = dy / dx;
+                cyLeft = k * cxLeft;
+                cyRight = k * cxRight;
+                if (yMin > cyLeft || cyLeft > yMax) {
+                    k = clamp(cyLeft, yMin, yMax) / cxLeft;
+                    cyLeft = k * cxLeft;
+                    cyRight = k * cxRight;
+                }
+                if (yMin > cyRight || cyRight > yMax) {
+                    k = clamp(cyRight, yMin, yMax) / cxRight;
+                    cyLeft = k * cxLeft;
+                    cyRight = k * cxRight;
+                }
+                break;
+        }
+
+        left?.setParam("bezierCX2", cxLeft);
+        left?.setParam("bezierCY2", cyLeft);
+        mid.setParam("bezierCX1", cxRight);
+        mid.setParam("bezierCY1", cyRight);
+    }
+
+    /** 对齐一个timeline上的一批贝塞尔手柄。from 到 to 左闭右开，默认为整条时间线。 */
+    alignBezierForTimeline(timeline: Timeline, from: number | null = null, to: number | null = null, handleType: BezierHandleType | null = null, main: "left" | "right" = "left") {
+        from ??= 0;
+        to ??= timeline.keyframes.length;
+        for (let i = from; i < to; i ++) {
+            let keyframe = timeline.keyframes[i] as Keyframe | undefined;
+            if (!keyframe) continue;
+            if (keyframe.interType != InterType.bezier && timeline.keyframes[i - 1]?.interType != InterType.bezier) continue;
+            let leftKeyframe = (timeline.keyframes[i - 1] ?? null) as Keyframe | null;
+            let rightKeyframe = (timeline.keyframes[i + 1] ?? null) as Keyframe | null;
+
+            this.alignBezier(leftKeyframe, keyframe, rightKeyframe, handleType, main);
+        }
+    }
+
+    scrollTUIBar(x: number) {
+        this.TUIScroll = clamp(
+            this.TUIScroll + x, 0,
+            this.tValueNames.length + 1 - (this.canvasHeight - EdConst.headerHeight - EdConst.hintBarHeight - EdConst.undoSize) / EdConst.tuiHeight + 2
+        );
+    }
+
+    zoomCamera(s: number) {
+        this.previewCameraSPow = clamp(this.previewCameraSPow + s, -5, 5);
+        this.updateMouseStagePosition();
+    }
+
+    playStep() {
+        if (this.isPlaying) {
+            this.update(null);
+            if (!this.isLoop) {
+                let timeSec = this.playTimeSec;
+                let maxLengthSec = max(...this.layers.map(layer => layer.length / layer.fps));
+                if (this.isYoyo) maxLengthSec *= 2;
+                if (timeSec > maxLengthSec) {
+                    this.isPlaying = false;
+                    this.update(null);
+                    return;
+                }
+            }
+            requestAnimationFrame(this.playStep.bind(this));
+        }
+    }
+
     // #endregion
 
     updateCuis() {
@@ -3651,12 +4201,18 @@ class TanimEditor {
         // 动画值
         y += EdConst.kuiLineHeight;
         kuis.push(new KUI(KUIType.tValue, 0, y, width, { text: Strings.eKUITValue }));
+        // 选中帧的值为字符串
+        if (typeof keyframe.y == "string") {
+            y += EdConst.kuiLineHeight + EdConst.kuiLineSpacingLarge;
+            kuis.push(new KUI(KUIType.ghostLabel, 0, y, width, { text: Strings.eKUIStringKeyframeSelect }));
+            return;
+        }
         // 选中了末尾帧
         if (
             (idx0 >= 0 && !this.timelines[0]?.keyframes[idx0 + 1]) ||
             (idx1 >= 0 && !this.timelines[1]?.keyframes[idx1 + 1])
         ) {
-            y += EdConst.kuiLineHeight;
+            y += EdConst.kuiLineHeight + EdConst.kuiLineSpacingLarge;
             kuis.push(new KUI(KUIType.ghostLabel, 0, y, width, { text: Strings.eKUILastSelect }));
             return;
         }
@@ -3749,9 +4305,33 @@ class TanimEditor {
         }
     }
 
+    updatePuis() {
+        let width = this.canvasWidth - this.leftBarWidth - this.rightBarWidth - 2 * EdConst.puiPaddingX - 3 * EdConst.puiSpacing;
+        let puis = this.puis;
+        puis.length = 0;
+        let x = this.leftBarWidth + EdConst.puiPaddingX;
+        let y = EdConst.headerHeight + EdConst.puiPaddingY;
+        let headerWidth = min(width, 600)
+        puis.push(new PUI(PUIType.spriteName, x, y, { w: 0.2 * headerWidth, h: EdConst.puiLineHeight as number }, Strings.ePUISpriteName));
+        x += 0.2 * headerWidth + EdConst.puiSpacing;
+        puis.push(new PUI(PUIType.costumeName0, x, y, { w: 0.8 / 3 * headerWidth, h: EdConst.puiLineHeight as number }, Strings.ePUICostumeName0));
+        x += 0.8 / 3 * headerWidth + EdConst.puiSpacing;
+        puis.push(new PUI(PUIType.costumeName1, x, y, { w: 0.8 / 3 * headerWidth, h: EdConst.puiLineHeight as number }, Strings.ePUICostumeName1));
+        x += 0.8 / 3 * headerWidth + EdConst.puiSpacing;
+        puis.push(new PUI(PUIType.costumeName2, x, y, { w: 0.8 / 3 * headerWidth, h: EdConst.puiLineHeight as number }, Strings.ePUICostumeName2));
+        x = this.canvasWidth - this.rightBarWidth - EdConst.puiPaddingX - EdConst.puiZoomSize;
+        y = this.canvasHeight - EdConst.hintBarHeight - this.timelineBarHeight - EdConst.controlBarHeight - EdConst.puiPaddingY - EdConst.puiZoomSize;
+        puis.push(new PUI(PUIType.zoomOut, x, y, { w: EdConst.puiZoomSize as number, h: EdConst.puiZoomSize as number }));
+        x -= EdConst.puiZoomSize + EdConst.puiSpacing;
+        puis.push(new PUI(PUIType.resetCamera, x, y, { w: EdConst.puiZoomSize as number, h: EdConst.puiZoomSize as number }));
+        x -= EdConst.puiZoomSize + EdConst.puiSpacing;
+        puis.push(new PUI(PUIType.zoomIn, x, y, { w: EdConst.puiZoomSize as number, h: EdConst.puiZoomSize as number }));
+    }
+
     updateHoverAndCursor(event: MouseEvent | WheelEvent | KeyboardEvent | null = null) {
         this.hover = [];
         this.hoveredKeyframes.clear();
+        this.hoveredHandle = null;
         this.cursor = "default";
         if ((0 < this.mouseX && this.mouseX < this.canvasWidth) && (0 < this.mouseY && this.mouseY < EdConst.headerHeight)) {
             // 鼠标位于顶栏
@@ -3886,6 +4466,14 @@ class TanimEditor {
                 if (this.mouseY < this.canvasHeight - EdConst.hintBarHeight - this.timelineBarHeight - EdConst.controlBarHeight - 8) {
                     // 鼠标位于预览区
                     this.hover = ["preview"];
+                    for (let { type, x, y, size: {w, h} } of this.puis) {
+                        if (type == PUIType.label) continue;
+                        if (x - 1 <= this.mouseX && this.mouseX <= x + w + 1 && y - 1 <= this.mouseY && this.mouseY <= y + h + 1) {
+                            this.hover.push("pui", type);
+                            this.cursor = "pointer";
+                            break;
+                        }
+                    }
                 } else if (this.mouseY < this.canvasHeight - EdConst.hintBarHeight - this.timelineBarHeight - EdConst.controlBarHeight) {
                     // 鼠标位于控制栏上边缘（调整时间轴高度的位置）
                     this.cursor = "ns-resize";
@@ -3964,6 +4552,9 @@ class TanimEditor {
                         if (!timelineHover) return;
                         if (timelineHover[0] == "tValueCurve") {
                             this.hover.push(...timelineHover);
+                        } else if (timelineHover[0] == "handle") {
+                            this.hover.push("handle");
+                            this.hoveredHandle = timelineHover[1];
                         } else if (timelineHover[0] == "keyframe") {
                             this.hover.push("keyframe");
                             this.hoveredKeyframes.add(timelineHover[1]);
@@ -3972,17 +4563,86 @@ class TanimEditor {
                     }
                 }
             } else if (
-                this.mouseX < this.leftBarWidth &&
+                0 < this.mouseX && this.mouseX < this.leftBarWidth &&
                 this.mouseY < this.canvasHeight - EdConst.hintBarHeight
             ) {
-                // 鼠标位于左列（排除顶栏）
+                // 鼠标位于左列（排除顶栏和底栏）
+                if (this.canvasHeight - EdConst.hintBarHeight - EdConst.undoSize < this.mouseY) {
+                    // 撤销和还原
+                    if (this.mouseX <= EdConst.undoSize) {
+                        if (this.commandStack.isCanUndo) {
+                            this.hover.push("undo");
+                            this.cursor = "pointer";
+                        }
+                    } else if (this.mouseX <= 2 * EdConst.undoSize) {
+                        if (this.commandStack.isCanRedo) {
+                            this.hover.push("redo");
+                            this.cursor = "pointer";
+                        }
+                    }
+                } else {
+                    // TUI，动画值类型列表
+                    this.hover.push("tValueNameBar");
+                    if (!this.tanim) return;
+                    let idx = floor((this.mouseY - EdConst.headerHeight) / EdConst.tuiHeight + this.TUIScroll);
+                    if (0 <= idx && idx <= this.tValueNames.length) {
+                        this.hover.push("tui", idx);
+                        this.cursor = "pointer";
+                    }
+                }
             }
         }
     }
 
-    checkTimelineHover(timelineIndex: 0 | 1): ["keyframe", Keyframe] | ["tValueCurve", 0 | 1] | null {
+    checkTimelineHover(timelineIndex: 0 | 1): ["keyframe", Keyframe] | ["tValueCurve", 0 | 1] | ["handle", HoverHandle] | null {
         let timeline = this.timelines[timelineIndex];
         if (!timeline) return null;
+        if (this.isShowHandle) {
+            for (let i = 0; i < timeline.keyframes.length; i ++) {
+                let handleInfo = this.getHandleInfo(timeline, i);
+                if (!handleInfo) continue;
+                if (handleInfo.type == InterType.power ||
+                    handleInfo.type == InterType.exp ||
+                    handleInfo.type == InterType.elastic ||
+                    handleInfo.type == InterType.back ||
+                    handleInfo.type == InterType.tradExp ||
+                    handleInfo.type == InterType.lagrange
+                ) {
+                    let { keyframe, cx, cy } = handleInfo;
+                    let distance = sqrt((cx - this.mouseX) ** 2 + (cy - this.mouseY) ** 2);
+                    let type: HoverHandleType;
+                    switch (handleInfo.type) {
+                        case InterType.power: type = "powerN"; break;
+                        case InterType.exp: type = "expN"; break;
+                        case InterType.elastic: type = "elastic"; break;
+                        case InterType.back: type = "backS"; break;
+                        case InterType.tradExp: type = "tradExpV"; break;
+                        case InterType.lagrange: type = "lagrangeC"; break;
+                    }
+                    if (distance <= EdConst.timelineHandleSize + 4) {
+                        return ["handle", {timeline, keyframe, keyframeIndex: i, type}];
+                    }
+                } else if (handleInfo.type == InterType.bezier) {
+                    let { keyframe, rightKeyframe } = handleInfo;
+                    let bezierHandleType = keyframe.getParam("bezierHandleType") as BezierHandleType;
+                    if (bezierHandleType == BezierHandleType.aligned || bezierHandleType == BezierHandleType.free) {
+                        let { cx1, cy1 } = handleInfo;
+                        let distance = sqrt((cx1 - this.mouseX) ** 2 + (cy1 - this.mouseY) ** 2);
+                        if (distance <= EdConst.timelineHandleSize + 4) {
+                            return ["handle", {timeline, keyframe, keyframeIndex: i, type: "bezierC1"}];
+                        }
+                    }
+                    bezierHandleType = rightKeyframe.getParam("bezierHandleType") as BezierHandleType;
+                    if (bezierHandleType == BezierHandleType.aligned || bezierHandleType == BezierHandleType.free) {
+                        let { cx2, cy2 } = handleInfo;
+                        let distance = sqrt((cx2 - this.mouseX) ** 2 + (cy2 - this.mouseY) ** 2);
+                        if (distance <= EdConst.timelineHandleSize + 4) {
+                            return ["handle", {timeline, keyframe, keyframeIndex: i, type: "bezierC2"}];
+                        }
+                    }
+                }
+            }
+        }
         let mouseTime = round(this.mouseTimelineX);
         let mouseTValue = safeTValue(timeline.getTValueByFrame(mouseTime), timeline.tValueType);
         let [curveX, curveY] = this.timelineToCanvasPosition(mouseTime, mouseTValue);
@@ -4024,22 +4684,24 @@ class TanimEditor {
     }
 
     /** 执行一个鼠标行为，例如按下某个按钮  
+     * 可以手动构造一个 hover ，用以模拟鼠标行为（例如用于快捷键）  
      * 如果返回 true ，代表这一帧的更新需要被阻断（由于异步 prompt） */
-    doMouse(mouseState: MouseState, event: MouseEvent | WheelEvent | KeyboardEvent | null = null): true | void {
-        if (this.hover[0] == "header") {
-            if (this.hover[1] === undefined) {
+    doMouse(mouseState: MouseState, event: MouseEvent | WheelEvent | KeyboardEvent | null = null, hover: Hover | null = null): true | void {
+        hover ??= this.hover;
+        if (hover[0] == "header") {
+            if (hover[1] === undefined) {
                 if (mouseState == MouseState.leftDown) {
                     this.mouseDragType = MouseDragType.move;
                     this.mouseDragTop = this.top;
                     this.mouseDragLeft = this.left;
                 }
-            } else if (this.hover[1] == "close") {
+            } else if (hover[1] == "close") {
                 if (mouseState == MouseState.leftUp) {
                     this.isShow = false;
                     this.root.style.display = "none";
                     return;
                 }
-            } else if (this.hover[1] == "minimize") {
+            } else if (hover[1] == "minimize") {
                 if (mouseState == MouseState.leftUp) {
                     this.isMinimized = !this.isMinimized;
                     if (this.isMinimized) {
@@ -4058,65 +4720,66 @@ class TanimEditor {
                     this.setCanvasSize(this.canvasWidth, this.canvasHeight);
                     this.setPosition();
                     this.updateCuis();
+                    this.updatePuis();
                     this.updateHoverAndCursor(event);
                 }
             }
-        } else if (this.hover[0] == "border") {
-            if (this.hover[1] == "rb") {
+        } else if (hover[0] == "border") {
+            if (hover[1] == "rb") {
                 if (mouseState != MouseState.leftDown) return;
                 this.mouseDragType = MouseDragType.size;
                 this.mouseDragWidth = this.width;
                 this.mouseDragHeight = this.height;
-            } else if (this.hover[1] == "r") {
+            } else if (hover[1] == "r") {
                 if (mouseState != MouseState.leftDown) return;
                 this.mouseDragType = MouseDragType.width;
                 this.mouseDragWidth = this.width;
-            } else if (this.hover[1] == "b") {
+            } else if (hover[1] == "b") {
                 if (mouseState != MouseState.leftDown) return;
                 this.mouseDragType = MouseDragType.height;
                 this.mouseDragHeight = this.height;
             }
-        } else if (this.hover[0] == "innerBorder") {
-            if (this.hover[1] == "l") {
+        } else if (hover[0] == "innerBorder") {
+            if (hover[1] == "l") {
                 if (mouseState != MouseState.leftDown) return;
                 this.mouseDragType = MouseDragType.leftBarWidth;
                 this.mouseDragWidth = this.leftBarWidth;
-            } else if (this.hover[1] == "r") {
+            } else if (hover[1] == "r") {
                 if (mouseState != MouseState.leftDown) return;
                 this.mouseDragType = MouseDragType.rightBarWidth;
                 this.mouseDragWidth = this.rightBarWidth;
-            } else if (this.hover[1] == "b") {
+            } else if (hover[1] == "b") {
                 if (mouseState != MouseState.leftDown) return;
                 this.mouseDragType = MouseDragType.timelineBarHeight;
                 this.mouseDragHeight = this.timelineBarHeight;
-            } else if (this.hover[1] == "layer") {
+            } else if (hover[1] == "layer") {
                 if (mouseState != MouseState.leftDown) return;
                 this.mouseDragType = MouseDragType.layerBarHeight;
                 this.mouseDragHeight = this.layerBarHeight;
             }
-        } else if (this.hover[0] == "newTanim") {
+        } else if (hover[0] == "newTanim") {
             if (mouseState != MouseState.leftUp) return;
             // 新建动画！
             if (this.askAndCreateNewTanim()) return true;
             this.updateTanimTree();
-        } else if (this.hover[0] == "tanimList") {
-            if (this.hover[1] == this.tanimTree.length) {
+        } else if (hover[0] == "tanimList") {
+            if (hover[1] == this.tanimTree.length) {
                 if (mouseState != MouseState.dblclick) return;
                 // 双击空白处新建动画！
                 if (this.askAndCreateNewTanim()) return true;
                 this.updateTanimTree();
-            } else if (typeof this.hover[1] == "number") {
+            } else if (typeof hover[1] == "number") {
                 // 鼠标位于动画列表中的一个节点上
-                let hoverItem = this.tanimTree[this.hover[1]];
+                let hoverItem = this.tanimTree[hover[1]];
                 switch (hoverItem.type) {
                     case TanimItemType.tanim:
                         if (!hoverItem.tanim) break;
-                        switch (this.hover[2]) {
+                        switch (hover[2]) {
                             case TanimListButtonType.main:
                                 if (mouseState == MouseState.leftDown) {
                                     // 开始拖动动画
                                     this.mouseDragType = MouseDragType.tanimTreeItem;
-                                    this.mouseDragIndex = this.hover[1];
+                                    this.mouseDragIndex = hover[1];
                                 } else if (mouseState == MouseState.dblclick) {
                                     // 双击动画，覆盖现有图层
                                     this.removeAllLayers();
@@ -4174,7 +4837,7 @@ class TanimEditor {
                     case TanimItemType.folderFolded:
                         let tanims = TheTanimManager.getTanimsByPrefix(hoverItem.dir.join(EdConst.tanimFolderSeparator) + EdConst.tanimFolderSeparator);
                         if (tanims.length == 0) break;
-                        switch (this.hover[2]) {
+                        switch (hover[2]) {
                             case TanimListButtonType.main:
                                 if (
                                     mouseState == MouseState.leftDown && 
@@ -4182,7 +4845,7 @@ class TanimEditor {
                                 ) {
                                     // 开始拖动文件夹
                                     this.mouseDragType = MouseDragType.tanimTreeItem;
-                                    this.mouseDragIndex = this.hover[1];
+                                    this.mouseDragIndex = hover[1];
                                 } else if (mouseState == MouseState.dblclick) {
                                     // 双击文件夹，覆盖现有图层
                                     this.layers.length = 0;
@@ -4233,19 +4896,19 @@ class TanimEditor {
                         break;
                 }
             }
-        } else if (this.hover[0] == "layerList") {
-            if (typeof this.hover[1] == "number" && this.hover[1] < this.layerTree.length) {
+        } else if (hover[0] == "layerList") {
+            if (typeof hover[1] == "number" && hover[1] < this.layerTree.length) {
                 // 鼠标位于图层列表中的一个节点上
-                let hoverItem = this.layerTree[this.hover[1]];
+                let hoverItem = this.layerTree[hover[1]];
                 switch (hoverItem.type) {
                     case TanimItemType.tanim:
                         if (!hoverItem.tanim) break;
-                        switch (this.hover[2]) {
+                        switch (hover[2]) {
                             case TanimListButtonType.main:
                                 if (mouseState == MouseState.leftDown) {
                                     // 开始拖动图层
                                     this.mouseDragType = MouseDragType.layerTreeItem;
-                                    this.mouseDragIndex = this.hover[1];
+                                    this.mouseDragIndex = hover[1];
                                 } else if (mouseState == MouseState.leftUp) {
                                     //选中图层
                                     this.editTanim(hoverItem.tanim);
@@ -4266,7 +4929,7 @@ class TanimEditor {
                     case TanimItemType.folderFolded:
                         let tanims = this.layers.filter(tanim => tanim.name.startsWith(hoverItem.dir.join(EdConst.tanimFolderSeparator)));
                         if (tanims.length == 0) break;
-                        switch (this.hover[2]) {
+                        switch (hover[2]) {
                             case TanimListButtonType.main:
                                 if (
                                     mouseState == MouseState.leftDown && 
@@ -4274,7 +4937,7 @@ class TanimEditor {
                                 ) {
                                     // 开始拖动文件夹
                                     this.mouseDragType = MouseDragType.layerTreeItem;
-                                    this.mouseDragIndex = this.hover[1];
+                                    this.mouseDragIndex = hover[1];
                                 }
                                 break;
                             case TanimListButtonType.removeLayer:
@@ -4307,8 +4970,8 @@ class TanimEditor {
                         break;
                 }
             }
-        } else if (this.hover[0] == "keyframeBar") {
-            if (this.hover[1] === undefined) return;
+        } else if (hover[0] == "keyframeBar") {
+            if (hover[1] === undefined) return;
             let tanim = this.tanim;
             if (!tanim) return;
             if (this.selectedKeyframes.size !== 1) return;
@@ -4316,7 +4979,7 @@ class TanimEditor {
             let timeline = this.timelines[0]?.keyframes.includes(keyframe) ? this.timelines[0] : this.timelines[1]?.keyframes.includes(keyframe) ? this.timelines[1] : null;
             if (!timeline) return;
             let editor = this; // 我怕 this 指向出错。。干脆就这么写得了
-            let kuiType = this.hover[1];
+            let kuiType = hover[1];
             let keyframeIndex = timeline.keyframes.indexOf(keyframe);
             if (keyframeIndex == -1) return;
             switch (kuiType) {
@@ -4344,7 +5007,7 @@ class TanimEditor {
                         if (this.ask(getTranslate(Strings.eInputKeyframeTValueQuestion), `${keyframe.y}`, answer => {
                             if (!answer) return;
                             let num = parseFloat(answer);
-                            let tValue = Number.isNaN(num) ? answer : num;
+                            let tValue = `${num}` === answer ? num : answer;
                             let newKeyframe = keyframe.getCopy();
                             newKeyframe.y = tValue;
                             editor.commandStack.PushAndDo(new EditAKeyframeCommand(editor, timeline, keyframe, newKeyframe));
@@ -4360,37 +5023,19 @@ class TanimEditor {
                 case KUIType.interTypeListItem:
                     if (mouseState == MouseState.leftUp) {
                         this.kuiState = KUIState.params;
-                        let interType = this.hover[2] as InterType;
+                        let interType = hover[2] as InterType;
                         let newKeyframe = new Keyframe(keyframe.x, keyframe.y, interType);
                         this.commandStack.PushAndDo(new EditAKeyframeCommand(this, timeline, keyframe, newKeyframe));
                     }
                     break;
                 case KUIType.paramInput:
-                    let paramType = this.hover[2] as EaseParamType;
+                    let paramType = hover[2] as EaseParamType;
                     if (mouseState == MouseState.leftUp) {
                         // @ts-ignore
                         if (this.ask(getTranslate(InputEaseParamQuestionStrings[paramType]), `${keyframe.getParam(paramType)}`, answer => {
                             if (!answer) return;
                             let paramValue = parseFloat(answer);
                             if (Number.isNaN(paramValue)) return; // 所有可输入的参数都是数字，所以这里姑且这么写
-                            switch (paramType) {
-                                case "powerN":
-                                case "backS":
-                                    // 大于等于 0 的参数
-                                    paramValue = max(paramValue, 0);
-                                    break;
-                                case "expN":
-                                case "elasticM":
-                                case "elasticN":
-                                case "tradExpP":
-                                    // 大于 0 的参数
-                                    paramValue = max(paramValue, 0.0001);
-                                    break;
-                                case "tradExpV":
-                                    // 大于等于 1 的参数
-                                    paramValue = max(paramValue, 1);
-                                    break;
-                            }
                             let newKeyframe = keyframe.getCopy();
                             newKeyframe.setParam(paramType, paramValue);
                             editor.commandStack.PushAndDo(new EditAKeyframeCommand(editor, timeline, keyframe, newKeyframe));
@@ -4403,8 +5048,8 @@ class TanimEditor {
                         if (this.ask(getTranslate(Strings.eInputTradExpVMQuestion), `${tradExpVM}`, answer => {
                             if (!answer) return;
                             let tradExpVM = parseFloat(answer);
-                            if (Number.isNaN(tradExpVM)) return;
-                            let tradExpV = 1 / clamp(tradExpVM, 0.0001, 1);
+                            if (Number.isNaN(tradExpVM) || tradExpVM == 0) return;
+                            let tradExpV = 1 / tradExpVM;
                             let newKeyframe = keyframe.getCopy();
                             newKeyframe.setParam("tradExpV", tradExpV);
                             editor.commandStack.PushAndDo(new EditAKeyframeCommand(editor, timeline, keyframe, newKeyframe));
@@ -4425,8 +5070,8 @@ class TanimEditor {
                     }
                     break;
                 case KUIType.paramRadio:
-                    let paramRadioType = this.hover[2] as EaseParamType;
-                    let paramRadioValue = this.hover[3] as EaseParamValue;
+                    let paramRadioType = hover[2] as EaseParamType;
+                    let paramRadioValue = hover[3] as EaseParamValue;
                     if (mouseState == MouseState.leftUp) {
                         let newKeyframe = keyframe.getCopy();
                         newKeyframe.setParam(paramRadioType, paramRadioValue);
@@ -4434,10 +5079,18 @@ class TanimEditor {
                     }
                     break;
             }
-        } else if (this.hover[0] == "controlBar") {
-            if (this.hover[1] === undefined) return;
-            switch (this.hover[1]) {
+        } else if (hover[0] == "controlBar") {
+            if (hover[1] === undefined) return;
+            switch (hover[1]) {
                 case CUIType.play:
+                    if (!this.tanim) return;
+                    if (mouseState == MouseState.leftDown) {
+                        this.isPlaying = !this.isPlaying;
+                        if (this.isPlaying) {
+                            this.playTimestamp = Date.now();
+                            requestAnimationFrame(this.playStep.bind(this));
+                        }
+                    }
                     break;
                 case CUIType.gotoLeftFrame:
                     if (mouseState == MouseState.leftDown) {
@@ -4533,31 +5186,31 @@ class TanimEditor {
                     }
                     break;
             }
-        } else if (this.hover[0] == "timeline") {
+        } else if (hover[0] == "timeline") {
             if (!this.tanim) return;
             // 缩放幅度
             let dScale = event?.altKey ? 4 : 1;
             // 卷动幅度
             let dScroll = 40;
-            if (event?.ctrlKey) dScroll *= 0.25;
             if (event?.altKey) dScroll *= 4;
-            // 中键移动
-            if (mouseState == MouseState.middleDown) {
+            // 中键或右键移动
+            if (mouseState == MouseState.middleDown || mouseState == MouseState.rightDown) {
                 this.mouseDragType = MouseDragType.timelineScroll;
                 this.mouseDragX = this.mouseX;
                 this.mouseDragY = this.mouseY;
                 return;
             }
-            switch (this.hover[1]) {
+            switch (hover[1]) {
                 case "main":
                     // 时间轴主面板！！！
-                    if (this.hover[2] == "tValueCurve" && this.timelines[this.hover[3] as 0 | 1]) {
+                    if (hover[2] == "tValueCurve" && this.timelines[hover[3] as 0 | 1]) {
                         // 悬停在动画曲线的空白处
                         if (mouseState == MouseState.leftDown) {
-                            let timeline = this.timelines[this.hover[3] as 0 | 1] as Timeline;
+                            let timeline = this.timelines[hover[3] as 0 | 1] as Timeline;
                             let time = round(this.mouseTimelineX);
-                            let leftKeyframe = timeline.findLeftKeyframe(this.focusTime);
-                            let keyframe = new Keyframe(time, timeline.getTValueByFrame(time), leftKeyframe?.interType ?? InterType.linear);
+                            let tValue =  timeline.getTValueByFrame(time);
+                            let leftKeyframe = timeline.findLeftKeyframe(time);
+                            let keyframe = new Keyframe(time, tValue, leftKeyframe?.interType ?? InterType.linear);
                             this.commandStack.PushAndDo(new AddKeyframesCommand(this, this.tanim, new TKPair(timeline, keyframe)));
                             // 在创建关键帧的同时，自动选中新建的关键帧
                             if (event?.shiftKey) {
@@ -4565,15 +5218,26 @@ class TanimEditor {
                             } else {
                                 this.commandStack.PushAndDo(new SelectKeyframesCommand(this, keyframe));
                             }
+                            this.focus(time, false);
                             // 创建关键帧的同时，允许直接拖动它
                             this.mouseDragType = MouseDragType.moveKeyframe;
-                            this.mouseDragX = this.mouseTimelineX;
-                            this.mouseDragY = this.mouseTimelineY;
+                            this.mouseDragX = time;
+                            this.mouseDragY = this.canvasTotimelinePosition(0, this.timelineToCanvasPosition(0, tValue)[1])[1];
                             this.commandStack.PushAndDo(new MoveKeyframesCommand(this, 0, 0, ...toTKPairs(this.timelines, ...this.selectedKeyframes)));
                         }
                         break;
                     }
-                    if (this.hover[2] == "keyframe" && this.hoveredKeyframes.size == 1) {
+                    if (hover[2] == "handle" && this.hoveredHandle) {
+                        if (mouseState == MouseState.leftDown) {
+                            let { timeline, keyframe } = this.hoveredHandle;
+                            this.mouseDragType = MouseDragType.moveKeyframeHandle;
+                            this.mouseDragHandle = this.hoveredHandle;
+                            this.mouseDragX = this.mouseTimelineX;
+                            this.mouseDragY = this.mouseTimelineY;
+                            this.commandStack.PushAndDo(new EditAKeyframeCommand(this, timeline, keyframe, keyframe.getCopy()));
+                        }
+                    }
+                    if (hover[2] == "keyframe" && this.hoveredKeyframes.size == 1) {
                         // 悬停在一个关键帧上
                         if (mouseState == MouseState.leftDown) {
                             let [hoveredKeyframe] = this.hoveredKeyframes;
@@ -4602,7 +5266,7 @@ class TanimEditor {
                             break;
                         }
                     }
-                    if (this.hover[2] === undefined) {
+                    if (hover[2] === undefined) {
                         if (mouseState == MouseState.leftDown) {
                             // 点击空白处
                             if (!event?.shiftKey) {
@@ -4616,7 +5280,7 @@ class TanimEditor {
                     break;
                 case "mark":
                 case "ruler":
-                    if (this.hover[2] == "endTime") {
+                    if (hover[2] == "endTime") {
                         this.cursor = "ew-resize";
                         if (mouseState == MouseState.leftDown) {
                             this.mouseDragType = MouseDragType.endTime;
@@ -4633,7 +5297,7 @@ class TanimEditor {
                 case "scrollRight":
                     if (mouseState == MouseState.leftDown) {
                         // 滚动条左右的滚动按钮
-                        this.scrollTimeline((this.hover[1] == "scrollRight" ? 1 : -1) * dScroll / this.timelineScaleX, 0);
+                        this.scrollTimeline((hover[1] == "scrollRight" ? 1 : -1) * dScroll / this.timelineScaleX, 0);
                         break;
                     }
                 case "scrollX":
@@ -4650,53 +5314,151 @@ class TanimEditor {
                         break;
                     }
             }
+        } else if (hover[0] == "tValueNameBar") {
+            if (!this.tanim) return;
+            if (hover[1] == "tui") {
+                if (mouseState == MouseState.leftUp) {
+                    if (hover[2] == this.tValueNames.length) {
+                        // 新建时间轴
+                        let editor = this;
+                        if (this.ask(getTranslate(Strings.eNewTValueTypeQuestion), this.tanim.getSafeTValueType(getTranslate(Strings.eDefaultTValueTypeName)), answer => {
+                            if (answer === null) return;
+                            if (!editor.tanim) return;
+                            let newTValueName = editor.tanim.getSafeTValueType(answer);
+                            editor.commandStack.PushAndDo(new AddTimelineCommand(editor, editor.tanim, new Timeline(newTValueName, [])));
+                        })) return true;
+                    } else {
+                        let tValueName = this.tValueNames[hover[2] as number];
+                        if (tValueName !== undefined) this.editTValueName(tValueName);
+                    }
+                }
+            }
+        } else if (hover[0] == "undo") {
+            if (mouseState == MouseState.leftUp) this.commandStack.undo();
+        } else if (hover[0] == "redo") {
+            if (mouseState == MouseState.leftUp) this.commandStack.redo();
+        } else if (hover[0] == "preview") {
+            if (!this.tanim) return;
+            if (hover[1] == "pui") {
+                let editor = this;
+                let costumeNameIndex: 0 | 1 | 2;
+                let costumeNameQuestionStrings: Strings;
+                switch (hover[2]) {
+                    case PUIType.spriteName:
+                        if (mouseState == MouseState.leftUp) {
+                            if (this.ask(getTranslate(Strings.ePUISpriteNameQuestion), this.getSpriteName(this.tanim), answer => {
+                                if (answer === null) return;
+                                editor.setSpriteName(editor.tanim, answer);
+                                saveData();
+                            })) return;
+                        }
+                        break;
+                    case PUIType.costumeName0:
+                        costumeNameIndex ??= 0;
+                        costumeNameQuestionStrings ??= Strings.ePUICostumeName0Question;
+                    case PUIType.costumeName1:
+                        costumeNameIndex ??= 1;
+                        costumeNameQuestionStrings ??= Strings.ePUICostumeName1Question;
+                    case PUIType.costumeName2:
+                        costumeNameIndex ??= 2;
+                        costumeNameQuestionStrings ??= Strings.ePUICostumeName2Question;
+                        let costumeNames = this.getCostumeNames(this.tanim)
+                        if (mouseState == MouseState.leftUp) {
+                            if (this.ask(getTranslate(costumeNameQuestionStrings), costumeNames[costumeNameIndex], answer => {
+                                if (answer === null) return;
+                                costumeNames[costumeNameIndex] = answer;
+                                saveData();
+                            })) return;
+                        }
+                        break;
+                    case PUIType.zoomIn:
+                        if (mouseState == MouseState.leftDown) {
+                            this.zoomCamera(0.5);
+                        }
+                        break;
+                    case PUIType.zoomOut:
+                        if (mouseState == MouseState.leftDown) {
+                            this.zoomCamera(-0.5);
+                        }
+                        break;
+                    case PUIType.resetCamera:
+                        if (mouseState == MouseState.leftDown) {
+                            this.previewCameraX = 0;
+                            this.previewCameraY = 0;
+                            this.previewCameraSPow = 0;
+                        }
+                        break;
+                }
+            } else if (hover[1] === undefined) {
+                if (mouseState == MouseState.middleDown) {
+                    this.mouseDragType = MouseDragType.movePreviewCamera;
+                    this.mouseDragX = this.mouseX;
+                    this.mouseDragY = this.mouseY;
+                }
+            }
         }
     }
 
     /** 执行一个鼠标滚轮行为 */
-    doWheel(wheel: number, event: MouseEvent | WheelEvent | KeyboardEvent | null = null): true | void {
-        if (this.hover[0] == "tanimScroll") {
+    doWheel(wheel: number, event: MouseEvent | WheelEvent | KeyboardEvent | null = null, hover: Hover | null = null): void {
+        hover ??= this.hover;
+        if (hover[0] == "tanimScroll") {
             if (wheel < 0) {
                 this.scrollTanimList(-5);
             }
             if (wheel > 0) {
                 this.scrollTanimList(5);
             }
-        } else if (this.hover[0] == "tanimList") {
+        } else if (hover[0] == "tanimList") {
             if (wheel < 0) {
                 this.scrollTanimList(-2);
             }
             if (wheel > 0) {
                 this.scrollTanimList(2);
             }
-        } else if (this.hover[0] == "layerScroll") {
+        } else if (hover[0] == "layerScroll") {
             if (wheel < 0) {
                 this.scrollLayerList(-5);
             }
             if (wheel > 0) {
                 this.scrollLayerList(5);
             }
-        } else if (this.hover[0] == "layerList") {
+        } else if (hover[0] == "layerList") {
             if (wheel < 0) {
                 this.scrollLayerList(-2);
             }
             if (wheel > 0) {
                 this.scrollLayerList(2);
             }
-        } else if (this.hover[0] == "timeline") {
+        } else if (hover[0] == "timeline") {
             if (!this.tanim) return;
             // 缩放幅度
             let dScale = event?.altKey ? 4 : 1;
             // 卷动幅度
             let dScroll = 40;
-            if (event?.ctrlKey) dScroll *= 0.25;
             if (event?.altKey) dScroll *= 4;
             let isScrolledOrScaled = false;
-            switch (this.hover[1]) {
+            switch (hover[1]) {
                 case "main":
                     // 时间轴主面板！！！
                     if (wheel != 0) {
-                        if (event?.shiftKey) {
+                        if (event?.ctrlKey) {
+                            // ctrl + 滚轮，缩放（同时缩放两个轴）
+                            if (wheel < 0) {
+                                // 向上滚动，放大
+                                let n = min(dScale, EdConst.timelineMaxScalePowX - this.timelineScalePowX, EdConst.timelineMaxScalePowY - this.timelineScalePowY);
+                                this.scaleTimelineX(n);
+                                this.scaleTimelineY(n);
+                                isScrolledOrScaled = true;
+                            }
+                            if (wheel > 0) {
+                                // 向下滚动，缩小
+                                let n = max(-dScale, EdConst.timelineMinScalePowX - this.timelineScalePowX, EdConst.timelineMinScalePowY - this.timelineScalePowY);
+                                this.scaleTimelineX(n);
+                                this.scaleTimelineY(n);
+                                isScrolledOrScaled = true;
+                            }
+                        } else if (event?.shiftKey) {
                             // shift + 滚轮，横向滚动
                             this.scrollTimeline(sign(wheel) * dScroll / this.timelineScaleX, 0);
                             isScrolledOrScaled = true;
@@ -4743,6 +5505,66 @@ class TanimEditor {
                 this.updateMouseTimelinePosition();
                 this.updateHoverAndCursor(event);
             }
+        } else if (hover[0] == "tValueNameBar") {
+            if (wheel < 0) {
+                this.scrollTUIBar(-0.5);
+            }
+            if (wheel > 0) {
+                this.scrollTUIBar(0.5);
+            }
+        } else if (hover[0] == "preview") {
+            if (!this.tanim) return;
+            if (wheel == 0) return;
+            let dScroll = 30 * sign(wheel) / this.previewCameraS;
+            let dZoom = 0.25 * sign(wheel);
+            if (event?.altKey) {
+                dScroll *= 4;
+                dZoom *= 4;
+            }
+            if (event?.ctrlKey) {
+                this.zoomCamera(-dZoom);
+            } else if (event?.shiftKey) {
+                this.previewCameraX += dScroll;
+                this.updateMouseStagePosition();
+            } else {
+                this.previewCameraY -= dScroll;
+                this.updateMouseStagePosition();
+            }
+        }
+    }
+
+    doMouseDragStop(mouseState: MouseState, event: MouseEvent | WheelEvent | KeyboardEvent | null = null, hover: Hover | null = null) {
+        hover ??= this.hover;
+        if (mouseState == MouseState.leftUp || mouseState == MouseState.rightUp || mouseState == MouseState.middleUp) {
+            // 停止拖动
+            if (this.mouseDragType == MouseDragType.tanimTreeItem) {
+                // 扔下一个动画
+                if (this.hover[0] == "tanimList" && typeof this.hover[1] == "number") {
+                    this.dropTanimToTanims(this.mouseDragIndex, this.hover[1]);
+                } else if (this.hover[0] == "layerList" && typeof this.hover[1] == "number") {
+                    this.dropTanimToLayers(this.mouseDragIndex, this.hover[1]);
+                }
+            } else if (this.mouseDragType == MouseDragType.layerTreeItem) {
+                // 扔下一个图层
+                if (this.hover[0] == "layerList" && typeof this.hover[1] == "number") {
+                    if (this.mouseDragIndex === this.hover[1] && this.layerTree[this.hover[1]].tanim) {
+                        if (this.doMouse(mouseState, event)) return;
+                    } else {
+                        this.dropLayerToLayers(this.mouseDragIndex, this.hover[1]);
+                    }
+                }
+            } else if (this.mouseDragType == MouseDragType.boxSelectKeyframe) {
+                // 框选关键帧结束
+                if (!event?.shiftKey) {
+                    // 如果没按 shift 直接选，那就只选框里的
+                    this.commandStack.PushAndDo(new SelectKeyframesCommand(this, ...this.hoveredKeyframes));
+                } else {
+                    // 如果是按着 shift 选的，就把框里的增加到已选择的关键帧中
+                    this.commandStack.PushAndDo(new SelectKeyframesCommand(this, ...this.selectedKeyframes, ...this.hoveredKeyframes));
+                }
+            }
+            this.mouseDragType = MouseDragType.none;
+            this.updateHoverAndCursor(event);
         }
     }
 
@@ -4803,30 +5625,26 @@ class TanimEditor {
     update(events: { mouseEvent?: MouseEvent, wheelEvent?: WheelEvent, keyboardEvent?: KeyboardEvent } | null) {
         if (this.isInputing) return;
         if (!this.isShow) return;
+        if (!this.isMouseOnRoot && this.mouseDragType == MouseDragType.none && !this.isPlaying) return;
 
         // 这里把几个参数分开。。。其实是想在类型推断上省事。。。
         let { mouseEvent, wheelEvent, keyboardEvent } = events ?? {};
+        if (keyboardEvent?.repeat) return;
+        // 一个测速用的傻逼玩意
+        /*if (keyboardEvent?.type == "keydown" && keyboardEvent?.key == "t" && this.tanim && this.timelines[0]) {
+            let times = 60 * 500 * 10;// 60 帧，500个实体，每个实体采样10次（10种动画值）
+            let start = Date.now();
+            for (let i = 0; i < times; i ++) {
+                this.tanim.getTValue("px", Math.random() * this.tanim.fps, TimeUnit.frame, LoopMode.loop);
+            }
+            let end = Date.now();
+            console.log(`测速结果：取样 ${times} 次，用时 ${end - start} ms`);
+        }/**/
         if (mouseEvent) {
             this.mouseClientX = mouseEvent.clientX;
             this.mouseClientY = mouseEvent.clientY;
         }
         let event = mouseEvent ?? wheelEvent ?? keyboardEvent;
-
-        /*
-        if (!this.isMinimized) {
-            this.updateTanimTree();
-            this.updateLayerTree();
-            this.updateCuis();
-        }
-        */
-        let ctx = this.ctx;
-        if (this.isMinimized) {
-            this.canvasWidth = EdConst.headerWidth;
-            this.canvasHeight = EdConst.headerHeight;
-        } else {
-            this.canvasWidth = this.width;
-            this.canvasHeight = this.height;
-        }
 
         // 处理鼠标信息
         let mouseState: MouseState = MouseState.move;
@@ -4874,6 +5692,22 @@ class TanimEditor {
             }
         }
 
+        /*
+        if (!this.isMinimized) {
+            this.updateTanimTree();
+            this.updateLayerTree();
+            this.updateCuis();
+        }
+        */
+        let ctx = this.ctx;
+        if (this.isMinimized) {
+            this.canvasWidth = EdConst.headerWidth;
+            this.canvasHeight = EdConst.headerHeight;
+        } else {
+            this.canvasWidth = this.width;
+            this.canvasHeight = this.height;
+        }
+
         this.updateMousePosition();
 
         let wheel = 0;
@@ -4893,6 +5727,7 @@ class TanimEditor {
         if (this.mouseDragType !== MouseDragType.none) switch (this.mouseDragType) {
             case MouseDragType.move:
             case MouseDragType.timelineScroll:
+            case MouseDragType.movePreviewCamera:
                 this.cursor = "move";
                 break;
             case MouseDragType.width:
@@ -4917,6 +5752,7 @@ class TanimEditor {
                 }
                 break;
             case MouseDragType.moveKeyframe:
+            case MouseDragType.moveKeyframeHandle:
                 this.cursor = "none";
                 break;
             default:
@@ -4927,24 +5763,26 @@ class TanimEditor {
             mouseEvent?.preventDefault();
         } else if (this.mouseDragType == MouseDragType.move) {
             mouseEvent?.preventDefault();
-            this.left = clamp(this.mouseDragLeft + this.mouseClientX - this.mouseDragClientX, 5, window.innerWidth - this.canvasWidth - 5);
+            this.left = clamp(this.mouseDragLeft + this.mouseClientX - this.mouseDragClientX, 5 - this.width + this.canvasWidth, window.innerWidth - this.width - 5);
             this.top = clamp(this.mouseDragTop + this.mouseClientY - this.mouseDragClientY, isGandi ? 65 : 53, window.innerHeight - this.canvasHeight - 5);
             this.setPosition();
-            saveData();
+            saveData(false);
         } else if (this.mouseDragType == MouseDragType.leftBarWidth) {
             mouseEvent?.preventDefault();
             this.leftBarWidth = clamp(
                 this.mouseDragWidth + this.mouseClientX - this.mouseDragClientX,
                 EdConst.leftBarWidthMin,
-                this.canvasWidth - EdConst.previewWidthMin - EdConst.rightBarWidthMin
+                min(EdConst.leftBarWidthMax, this.canvasWidth - EdConst.previewWidthMin - EdConst.rightBarWidthMin)
             );
             let d = (this.leftBarWidth + this.rightBarWidth + EdConst.previewWidthMin) - this.canvasWidth;
             if (d > 0) {
                 this.rightBarWidth -= d;
             }
+            this.updateStageCanvasSize();
             this.updateCuis();
+            this.updatePuis();
             this.updateKuis();
-            saveData();
+            saveData(false);
         } else if (this.mouseDragType == MouseDragType.rightBarWidth) {
             mouseEvent?.preventDefault();
             this.rightBarWidth = clamp(
@@ -4956,9 +5794,11 @@ class TanimEditor {
             if (d > 0) {
                 this.leftBarWidth -= d;
             }
+            this.updateStageCanvasSize();
             this.updateCuis();
+            this.updatePuis();
             this.updateKuis();
-            saveData();
+            saveData(false);
         } else if (this.mouseDragType == MouseDragType.timelineBarHeight) {
             mouseEvent?.preventDefault();
             this.timelineBarHeight = clamp(
@@ -4966,8 +5806,9 @@ class TanimEditor {
                 EdConst.timelineBarHeightMin,
                 this.canvasHeight - EdConst.hintBarHeight - EdConst.controlBarHeight - EdConst.previewHeightMin - EdConst.headerHeight
             );
-            this.updateCuis();
-            saveData();
+            this.updateStageCanvasSize();
+            this.updatePuis();
+            saveData(false);
         } else if (this.mouseDragType == MouseDragType.layerBarHeight) {
             mouseEvent?.preventDefault();
             this.layerBarHeight = clamp(
@@ -4975,7 +5816,7 @@ class TanimEditor {
                 EdConst.layerBarHeightMin,
                 this.canvasHeight - EdConst.hintBarHeight - EdConst.keyframeBarHeight - EdConst.tanimListHeightMin - EdConst.headerHeight
             );
-            saveData();
+            saveData(false);
         } else if (this.mouseDragType == MouseDragType.timelineScroll) {
             mouseEvent?.preventDefault();
             this.scrollTimeline((this.mouseDragX - this.mouseX) / this.timelineScaleX, -(this.mouseDragY - this.mouseY) / this.timelineScaleY);
@@ -5002,7 +5843,7 @@ class TanimEditor {
                     let dx: number, dy: number;
                     let cdx = this.mouseX - x;
                     let cdy = this.mouseY - y;
-                    let snapRange = 5;
+                    let snapRange = 6;
                     if (false) {
                         // 拖动效果：粘滞，拖出一段距离之后才会从原位置开始移动
                         dx = abs(cdx) <= snapRange ? 0 : this.canvasTotimelinePosition(this.mouseX - sign(cdx) * snapRange, 0)[0] - this.mouseDragX;
@@ -5013,10 +5854,132 @@ class TanimEditor {
                         dy = this.mouseTimelineY - this.mouseDragY;
                     } else {
                         // 拖动效果：吸附，如果拖动距离较小，则吸附到原位置
-                        dx = abs(cdx) <= snapRange ? 0 : this.mouseTimelineX - this.mouseDragX;
-                        dy = abs(cdy) <= snapRange ? 0 : this.mouseTimelineY - this.mouseDragY;
+                        if (max(abs(cdx), abs(cdy)) <= snapRange) {
+                            dx = dy = 0;
+                        } else {
+                            dx = this.mouseTimelineX - this.mouseDragX;
+                            dy = this.mouseTimelineY - this.mouseDragY;
+                        }
+                    }
+                    // 按住 shift 只能拖直线
+                    if (event?.shiftKey) {
+                        if (abs(dx * this.timelineScaleX) > abs(dy * this.timelineScaleY)) {
+                            dy = 0;
+                        } else {
+                            dx = 0;
+                        }
                     }
                     command.updateMotion(dx, dy);
+                }
+            }
+        } else if (this.mouseDragType == MouseDragType.moveKeyframeHandle) {
+            mouseEvent?.preventDefault();
+            if (this.tanim && this.mouseDragHandle) {
+                let command = this.commandStack.top;
+                if (command instanceof EditAKeyframeCommand) {
+                    let [x, y] = this.timelineToCanvasPosition(this.mouseDragX, this.mouseDragY);
+                    let dx: number, dy: number;
+                    let cdx = this.mouseX - x;
+                    let cdy = this.mouseY - y;
+                    let snapRange = 6;
+                    if (false) {
+                        // 拖动效果：粘滞，拖出一段距离之后才会从原位置开始移动
+                        dx = abs(cdx) <= snapRange ? 0 : this.canvasTotimelinePosition(this.mouseX - sign(cdx) * snapRange, 0)[0] - this.mouseDragX;
+                        dy = abs(cdy) <= snapRange ? 0 : this.canvasTotimelinePosition(0, this.mouseY - sign(cdy) * snapRange)[1] - this.mouseDragY;
+                    } else if (false) {
+                        // 拖动效果：无
+                        dx = this.mouseTimelineX - this.mouseDragX;
+                        dy = this.mouseTimelineY - this.mouseDragY;
+                    } else {
+                        // 拖动效果：吸附，如果拖动距离较小，则吸附到原位置
+                        if (max(abs(cdx), abs(cdy)) <= snapRange) {
+                            dx = dy = 0;
+                        } else {
+                            dx = this.mouseTimelineX - this.mouseDragX;
+                            dy = this.mouseTimelineY - this.mouseDragY;
+                        }
+                    }
+                    // 按住 shift 只能拖直线
+                    if (event?.shiftKey) {
+                        if (abs(dx * this.timelineScaleX) > abs(dy * this.timelineScaleY)) {
+                            dy = 0;
+                        } else {
+                            dx = 0;
+                        }
+                    }
+                    let { oldKeyframeCopy, newKeyframeCopy } = command;
+                    let { timeline, keyframeIndex, type } = this.mouseDragHandle;
+                    let rightKeyframe = timeline.keyframes[keyframeIndex + 1];
+                    if (rightKeyframe && typeof newKeyframeCopy.y == "number" && typeof rightKeyframe.y == "number") {
+                        let dy1y2 = newKeyframeCopy.y - rightKeyframe.y;
+                        let easeType = newKeyframeCopy.getParam("easeType");
+                        if (easeType == EaseType.out || easeType == EaseType.outIn) dy1y2 *= -1;
+                        if (easeType == EaseType.inOut || easeType == EaseType.outIn) dy1y2 *= 0.5;
+                        if (type == "powerN") {
+                            let oldN = oldKeyframeCopy.getParam("powerN");
+                            if (typeof oldN == "number") {
+                                let newN = oldN * exp(dy / dy1y2 * 2);
+                                if (abs(newN - 2) <= 0.05) newN = 2; else if (abs(newN - 0.5) <= 0.0125) newN = 0.5;// 吸附2和0.5
+                                newKeyframeCopy.setParam("powerN", newN);
+                                command.update(newKeyframeCopy);
+                            }
+                        } else if (type == "expN") {
+                            let oldN = oldKeyframeCopy.getParam("expN");
+                            if (typeof oldN == "number") {
+                                newKeyframeCopy.setParam("expN", oldN + dy / dy1y2 * 5);
+                                command.update(newKeyframeCopy);
+                            }
+                        } else if (type == "elastic") {
+                            let oldM = oldKeyframeCopy.getParam("elasticM");
+                            let oldN = oldKeyframeCopy.getParam("elasticN");
+                            if (typeof oldM == "number" && typeof oldN == "number") {
+                                let dx1x2 = rightKeyframe.x - newKeyframeCopy.x;
+                                if (easeType == EaseType.out || easeType == EaseType.outIn) dx1x2 *= -1;
+                                if (easeType == EaseType.inOut || easeType == EaseType.outIn) dx1x2 *= 0.5;
+                                newKeyframeCopy.setParam("elasticM", oldM * exp(dx / dx1x2));
+                                newKeyframeCopy.setParam("elasticN", oldN + dy / dy1y2 * 5);
+                                command.update(newKeyframeCopy);
+                            }
+                        } else if (type == "backS") {
+                            let S = oldKeyframeCopy.getParam("backS");
+                            if (typeof S == "number") {
+                                newKeyframeCopy.setParam("backS", S + dy / dy1y2 * 5);
+                                command.update(newKeyframeCopy);
+                            }
+                        } else if (type == "tradExpV") {
+                            let oldV = oldKeyframeCopy.getParam("tradExpV");
+                            if (typeof oldV == "number") {
+                                newKeyframeCopy.setParam("tradExpV", oldV * exp(dy / dy1y2 * 5));
+                                command.update(newKeyframeCopy);
+                            }
+                        } else if (type == "lagrangeC") {
+                            let oldCX = oldKeyframeCopy.getParam("lagrangeCX");
+                            let oldCY = oldKeyframeCopy.getParam("lagrangeCY");
+                            if (typeof oldCX == "number" && typeof oldCY == "number") {
+                                newKeyframeCopy.setParam("lagrangeCX", oldCX + dx);
+                                newKeyframeCopy.setParam("lagrangeCY", oldCY + dy);
+                                command.update(newKeyframeCopy);
+                            }
+                        } else if (type == "bezierC1") {
+                            let oldCX = oldKeyframeCopy.getParam("bezierCX1");
+                            let oldCY = oldKeyframeCopy.getParam("bezierCY1");
+                            if (typeof oldCX == "number" && typeof oldCY == "number") {
+                                newKeyframeCopy.setParam("bezierCX1", oldCX + dx);
+                                newKeyframeCopy.setParam("bezierCY1", oldCY + dy);
+                                command.update(newKeyframeCopy);
+                                this.alignBezierForTimeline(timeline, keyframeIndex, keyframeIndex + 1, null, "right");
+                            }
+                        } else if (type == "bezierC2") {
+                            let oldCX = oldKeyframeCopy.getParam("bezierCX2");
+                            let oldCY = oldKeyframeCopy.getParam("bezierCY2");
+                            if (typeof oldCX == "number" && typeof oldCY == "number") {
+                                newKeyframeCopy.setParam("bezierCX2", oldCX + dx);
+                                newKeyframeCopy.setParam("bezierCY2", oldCY + dy);
+                                this.alignBezierForTimeline(timeline, keyframeIndex + 1, keyframeIndex + 2, null, "left");
+                                command.update(newKeyframeCopy);
+                            }
+                        }
+                    }
                 }
             }
         } else if (this.mouseDragType == MouseDragType.boxSelectKeyframe) {
@@ -5030,6 +5993,13 @@ class TanimEditor {
                 this.tanim.length = max(round(this.mouseTimelineX), 1);
                 saveData();
             }
+        } else if (this.mouseDragType == MouseDragType.movePreviewCamera) {
+            mouseEvent?.preventDefault();
+            this.previewCameraX += (this.mouseDragX - this.mouseX) / this.previewCameraS;
+            this.previewCameraY += -(this.mouseDragY - this.mouseY) / this.previewCameraS;
+            this.mouseDragX = this.mouseX;
+            this.mouseDragY = this.mouseY;
+            this.updateMouseStagePosition();
         } else { // 拉伸窗口
             let resized = false;
             if (this.mouseDragType == MouseDragType.width || this.mouseDragType == MouseDragType.size) {
@@ -5074,49 +6044,20 @@ class TanimEditor {
             }
             if (resized) {
                 this.setCanvasSize();
-                saveData();
+                saveData(false);
             }
         }
-        if (mouseState == MouseState.leftUp || mouseState == MouseState.rightUp || mouseState == MouseState.middleUp) {
-            // 停止拖动
-            if (this.mouseDragType == MouseDragType.tanimTreeItem) {
-                // 扔下一个动画
-                if (this.hover[0] == "tanimList" && typeof this.hover[1] == "number") {
-                    this.dropTanimToTanims(this.mouseDragIndex, this.hover[1]);
-                } else if (this.hover[0] == "layerList" && typeof this.hover[1] == "number") {
-                    this.dropTanimToLayers(this.mouseDragIndex, this.hover[1]);
-                }
-            } else if (this.mouseDragType == MouseDragType.layerTreeItem) {
-                // 扔下一个图层
-                if (this.hover[0] == "layerList" && typeof this.hover[1] == "number") {
-                    if (this.mouseDragIndex === this.hover[1] && this.layerTree[this.hover[1]].tanim) {
-                        if (this.doMouse(mouseState, event)) return;
-                    } else {
-                        this.dropLayerToLayers(this.mouseDragIndex, this.hover[1]);
-                    }
-                }
-            } else if (this.mouseDragType == MouseDragType.boxSelectKeyframe) {
-                // 框选关键帧结束
-                if (!event?.shiftKey) {
-                    // 如果没按 shift 直接选，那就只选框里的
-                    this.commandStack.PushAndDo(new SelectKeyframesCommand(this, ...this.hoveredKeyframes));
-                } else {
-                    // 如果是按着 shift 选的，就把框里的增加到已选择的关键帧中
-                    this.commandStack.PushAndDo(new SelectKeyframesCommand(this, ...this.selectedKeyframes, ...this.hoveredKeyframes));
-                }
-            }
-            this.mouseDragType = MouseDragType.none;
-            this.updateHoverAndCursor(event);
-        }
-        this.timelines.forEach(timeline => timeline?.alignBezierHandleKeyframes());
+        this.doMouseDragStop(mouseState, event);
+        this.timelines.forEach(timeline => timeline && this.alignBezierForTimeline(timeline));
         this.scrollTanimList(0);
         this.scrollLayerList(0);
+        this.scrollTUIBar(0);
 
         this.hint[0] = this.hover.join("-");
 
         // 更新画面
         if (this.mouseDragType != MouseDragType.move) {
-            ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+            //ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
 
             if (!this.isMinimized) {
                 // 绘制时间轴
@@ -5127,12 +6068,20 @@ class TanimEditor {
                     this.canvasHeight - EdConst.hintBarHeight
                 );
 
+                // 绘制预览区
+                this.drawPreview(
+                    this.leftBarWidth, 
+                    EdConst.headerHeight,
+                    this.canvasWidth - this.rightBarWidth,
+                    this.canvasHeight - EdConst.hintBarHeight - this.timelineBarHeight - EdConst.controlBarHeight
+                );
+
                 // 绘制控制栏
                 this.drawControlBar(
                     this.leftBarWidth,
-                    this.canvasHeight - this.timelineBarHeight - EdConst.hintBarHeight - EdConst.controlBarHeight,
+                    this.canvasHeight - EdConst.hintBarHeight - this.timelineBarHeight - EdConst.controlBarHeight,
                     this.canvasWidth - this.rightBarWidth,
-                    this.canvasHeight - this.timelineBarHeight - EdConst.hintBarHeight,
+                    this.canvasHeight - EdConst.hintBarHeight - this.timelineBarHeight,
                     this.mouseDragType == MouseDragType.none ? UIState.hover : UIState.none
                 );
 
@@ -5322,13 +6271,19 @@ class TanimEditor {
                 ctx.arc(x, y, 18, 0, 2 * PI);
                 ctx.fillStyle = c1;
                 ctx.fill();
-                ctx.beginPath();
-                ctx.moveTo(x + 14, y);
-                ctx.lineTo(x - 7, y - 12.1); // 7 * √3
-                ctx.lineTo(x - 7, y + 12.1);
-                ctx.closePath();
-                ctx.fillStyle = c2;
-                ctx.fill();
+                if (this.isPlaying) {
+                    ctx.fillStyle = c2;
+                    ctx.fillRect(x - 2, y - 11, -5, 22);
+                    ctx.fillRect(x + 2, y - 11, 5, 22);
+                } else {
+                    ctx.beginPath();
+                    ctx.moveTo(x + 14, y);
+                    ctx.lineTo(x - 7, y - 12.1); // 7 * √3
+                    ctx.lineTo(x - 7, y + 12.1);
+                    ctx.closePath();
+                    ctx.fillStyle = c2;
+                    ctx.fill();
+                }
                 break;
             case CUIType.gotoLeftFrame:
                 ctx.moveTo(x - 9 - 3, y);
@@ -5592,8 +6547,12 @@ class TanimEditor {
             case CUIType.pos:
                 ctx.font = EdConst.cuiFont;
                 ctx.textAlign = "left";
-                ctx.fillText(`${round(this.mouseTimelineX)},${round(this.mouseTimelineY, min(floor(log10(this.timelineScaleY)) + 1, 4))}`, x + 2, y + h / 5, w - 4);
-                this.hint[1] = `${floor(log10(this.timelineScaleY)) + 1}`;
+                if (this.hover[0] == "timeline") {
+                    ctx.fillText(`${round(this.mouseTimelineX)},${round(this.mouseTimelineY, min(floor(log10(this.timelineScaleY)) + 1, 4))}`, x + 2, y + h / 5, w - 4);
+                } else if (this.hover[0] == "preview") {
+                    let n = clamp(floor(log10(this.previewCameraS)), 0, 4);
+                    ctx.fillText(`${round(this.mouseStageX, n)},${round(this.mouseStageY, n)}`, x + 2, y + h / 5, w - 4);
+                }
                 break;
             case CUIType.fps:
                 if (!this.tanim) break;
@@ -5625,9 +6584,9 @@ class TanimEditor {
         // 主区
         // 动画时长之外的阴影
         ctx.fillStyle = " #e6e6e6";
-        let startX = round(this.timelineToCanvasPosition(0, 0)[0]);
+        let startX = floor(this.timelineToCanvasPosition(0, 0)[0]);
         if (startX > x1) ctx.fillRect(x1, y1, startX - x1, y2 - y1);
-        let endX = round(this.timelineToCanvasPosition(tanim.length, 0)[0]);
+        let endX = floor(this.timelineToCanvasPosition(tanim.length, 0)[0]);
         if (endX < x2) ctx.fillRect(x2, y1, endX - x2, y2 - y1);
 
         // 纵向标尺
@@ -5638,7 +6597,7 @@ class TanimEditor {
             this.timelineScaleY > 0.04 ? 500 : this.timelineScaleY > 0.02 ? 1000 : 5000; // 哈哈哈哈哈哈我爱打表哈哈哈哈哈哈哈
         let stepSmall = 10 ** ceil(log10(3 / this.timelineScaleY));
         ctx.textBaseline = "alphabetic";
-        ctx.fillStyle = " #666666";
+        ctx.fillStyle = this.hover[1] == "sideRuler" ? " #333333" : " #666666";
 
         for (let tValue = floor(this.timelineScrollY / stepSmall) * stepSmall; y > y1; tValue += stepSmall) {
             tValue = round(round(tValue / stepSmall) * stepSmall, 8);
@@ -5670,20 +6629,23 @@ class TanimEditor {
             boxY = clamp(boxY, y1, y2);
             let boxY2 = clamp(this.mouseY, y1, y2)
             ctx.fillRect(boxX, boxY, this.mouseX - boxX, boxY2 - boxY);
-            ctx.strokeRect(round(boxX) + 0.5, round(boxY) + 0.5, round(this.mouseX - boxX), round(boxY2 - boxY));
+            ctx.strokeRect(floor(boxX) + 0.5, floor(boxY) + 0.5, round(this.mouseX - boxX), round(boxY2 - boxY));
         }
 
         // 鼠标十字
-        if (this.hover[0] == "timeline" && this.hover[1] == "main") {
+        if (this.hover[0] == "timeline") {
             ctx.fillStyle = " #666666";
             let x = round(this.mouseX);
             let y = round(this.mouseY);
-            ctx.fillRect(x, y1, 1, y2 - y1);
-            ctx.fillRect(x1, y, x2 - x1, 1);
-            if (this.mouseDragType == MouseDragType.moveKeyframe) {
+            if (this.hover[1] == "main") {
+                ctx.fillRect(x, y1, 1, y2 - y1);
+                ctx.fillRect(x1, y, x2 - x1, 1);
+            }
+            if (this.mouseDragType == MouseDragType.moveKeyframe || this.mouseDragType == MouseDragType.moveKeyframeHandle) {
                 ctx.strokeStyle = " #666666";
-                x += 0.5;
-                y += 0.5;
+                ctx.lineWidth = 1;
+                let x = floor(this.mouseX) + 0.5;
+                let y = floor(this.mouseY) + 0.5;
                 ctx.beginPath();
                 ctx.moveTo(x - 10, y - 30);
                 ctx.lineTo(x, y - 40);
@@ -5701,6 +6663,8 @@ class TanimEditor {
                 ctx.lineTo(...this.timelineToCanvasPosition(this.mouseDragX, this.mouseDragY));
                 ctx.stroke();
             }
+        } else if (this.hover[0] == "preview") {
+            // 鼠标在预览区的位置到时间轴上的投影，暂时不做
         }
 
         // 起点和终点竖线
@@ -5711,22 +6675,28 @@ class TanimEditor {
         if (x1 < endX && endX < x2) {
             ctx.fillRect(endX - 1, y1, 3, y2 - y1);
         }
+        // 播放竖线
+        let playX = 0;
+        if (this.isPlaying) {
+            playX = round(this.timelineToCanvasPosition(this.tanim.getTime(this.playTimeSec, TimeUnit.second, this.loopMode), 0)[0]);
+            if (x1 < playX && playX < x2) {
+                let y = y1 + EdConst.timelineMarkHeight + EdConst.timelineRulerHeight;
+                ctx.fillStyle = " #999999"
+                ctx.fillRect(playX, y, 1, y2 - y);
+            }
+        }
         // 焦点竖线
         let focusX = round(this.timelineToCanvasPosition(this.focusTime, 0)[0]);
         if (x1 < focusX && focusX < x2) {
             let y = y1 + EdConst.timelineMarkHeight + EdConst.timelineRulerHeight;
-            //ctx.fillStyle = " #ffffff";
-            //ctx.fillRect(focusX - 2, y, 5, y2 - y);
             ctx.fillStyle = tValueTypeToHSL(this.timelines[this.mainAxis]?.tValueType ?? this.timelines[this.subAxis]?.tValueType ?? DefaultTValueType.px, 50, 40);
             ctx.fillRect(focusX - 1, y, 3, y2 - y);
         }
         // 预览焦点竖线
-        let mouseFocusX = floor(this.timelineToCanvasPosition(round(this.mouseTimelineX), 0)[0]);
+        let mouseFocusX = round(this.timelineToCanvasPosition(round(this.mouseTimelineX), 0)[0]);
         if ((this.hover[1] == "mark" || this.hover[1] == "ruler") && round(this.mouseTimelineX) !== this.focusTime) {
             if (x1 < mouseFocusX && mouseFocusX < x2) {
                 let y = y1 + EdConst.timelineMarkHeight + EdConst.timelineRulerHeight;
-                //ctx.fillStyle = " #ffffff";
-                //ctx.fillRect(mouseFocusX - 1, y, 3, y2 - y);
                 ctx.fillStyle = tValueTypeToHSL(this.timelines[this.mainAxis]?.tValueType ?? this.timelines[this.subAxis]?.tValueType ?? DefaultTValueType.px, 50, 70);
                 ctx.fillRect(mouseFocusX, y, 1, y2 - y);
             }
@@ -5778,7 +6748,7 @@ class TanimEditor {
                     for (let { keyframes } of command.pairs) {
                         for (let keyframe of keyframes) {
                             let [x, y] = this.timelineToCanvasPosition(keyframe.x - command.x, typeof keyframe.y == "number" ? keyframe.y - command.y : keyframe.y);
-                            this.drawKeyframe(round(x) + 0.5, y, timeline.tValueType, "drag");
+                            this.drawKeyframe(x, y, timeline.tValueType, "drag");
                         }
                     }
                 }
@@ -5787,62 +6757,87 @@ class TanimEditor {
             // 关键帧
             for (let keyframe of timeline.keyframes) {
                 let [x, y] = this.timelineToCanvasPosition(keyframe.x, keyframe.y);
-                this.drawKeyframe(round(x) + 0.5, y, timeline.tValueType,
+                if (x + 15 < x1 || y + 15 < y1 || y - 15 > y2) continue;
+                if (x - 15 > x2) break;
+                this.drawKeyframe(x, y, timeline.tValueType,
                     deleteKeyframes?.has(keyframe) ? "delete" :
                     this.selectedKeyframes.has(keyframe) ? "select" :
                     this.hoveredKeyframes.has(keyframe) ? "hover" : "default"
                 );
             }
 
-            let bezierHandleColor = tValueTypeToHSL(tValueType, 40, 70);
+            let handleColor = tValueTypeToHSL(tValueType, 40, 70);
+            let handleHoverColor = tValueTypeToHSL(tValueType, 40, 70, 50);
+            let isHoveredThisTimeline = this.hoveredHandle?.timeline == timeline ||
+                (this.mouseDragType == MouseDragType.moveKeyframeHandle && this.mouseDragHandle?.timeline == timeline);
+            let [tx1, ty1, tx2, ty2] = [x1, y1, x2, y2];
             // 控制点
+            ctx.save();
             if (this.isShowHandle) for (let i = 0; i < timeline.keyframes.length; i++) {
-                let keyframe = timeline.keyframes[i];
-                let [x, y] = this.timelineToCanvasPosition(keyframe.x, keyframe.y);
-                switch (keyframe.interType) {
-                    case InterType.bezier:
-                        if (typeof keyframe.y == "string") break;
-                        let rightKeyframe = timeline.keyframes[i + 1] as Keyframe | undefined;
-                        if (!rightKeyframe) break;
-                        if (typeof rightKeyframe.y == "string") break;
-                        let [x2, y2] = this.timelineToCanvasPosition(rightKeyframe.x, rightKeyframe.y);
-                        let pcx1 = keyframe.getParam("bezierCX1");
-                        if (typeof pcx1 != "number") break;
-                        let pcy1 = keyframe.getParam("bezierCY1");
-                        if (typeof pcy1 != "number") break;
-                        let pcx2 = keyframe.getParam("bezierCX2");
-                        if (typeof pcx2 != "number") break;
-                        let pcy2 = keyframe.getParam("bezierCY2");
-                        if (typeof pcy2 != "number") break;
-                        let [cx1, cy1] = this.timelineToCanvasPosition(keyframe.x + pcx1, keyframe.y + pcy1);
-                        let [cx2, cy2] = this.timelineToCanvasPosition(rightKeyframe.x + pcx2, rightKeyframe.y + pcy2);
-                        ctx.save();
-                        ctx.beginPath();
-                        ctx.moveTo(x, y);
+                let handleInfo = this.getHandleInfo(timeline, i);
+                if (!handleInfo) continue;
+                let isHoveredThisKeyframe = isHoveredThisTimeline &&
+                    this.hoveredHandle?.keyframe == handleInfo.keyframe ||
+                    this.mouseDragHandle?.keyframe == handleInfo.keyframe;
+                let hoveredHandleType = (this.mouseDragType == MouseDragType.moveKeyframeHandle && this.mouseDragHandle?.type) || this.hoveredHandle?.type;
+                ctx.beginPath();
+                ctx.lineWidth = 2;
+                // 这里我真的很想用 switch ，但 ts 一遇上 switch 就会犯傻。。。
+                if (handleInfo.type == InterType.power ||
+                    handleInfo.type == InterType.exp ||
+                    handleInfo.type == InterType.elastic ||
+                    handleInfo.type == InterType.back ||
+                    handleInfo.type == InterType.tradExp ||
+                    handleInfo.type == InterType.lagrange
+                ) {
+                    let { cx, cy } = handleInfo;
+                    if (cx + 10 < tx1 || cx - 10 > tx2) continue;
+                    let type: HoverHandleType;
+                    switch (handleInfo.type) {
+                        case InterType.power: type = "powerN"; break;
+                        case InterType.exp: type = "expN"; break;
+                        case InterType.elastic: type = "elastic"; break;
+                        case InterType.back: type = "backS"; break;
+                        case InterType.tradExp: type = "tradExpV"; break;
+                        case InterType.lagrange: type = "lagrangeC"; break;
+                    }
+                    this.drawKeyframeHandle(cx, cy,
+                        isHoveredThisKeyframe && hoveredHandleType == type ? "hover" : "default",
+                        handleColor, handleHoverColor);
+                } else if (handleInfo.type == InterType.bezier) {
+                    let { x1, y1, x2, y2, cx1, cy1, cx2, cy2, handleType, rightHandleType } = handleInfo;
+                    ctx.save();
+                    ctx.beginPath();
+                    if (handleType != BezierHandleType.vector) {
+                        ctx.moveTo(x1, y1);
                         ctx.lineTo(cx1, cy1);
+                    }
+                    if (rightHandleType != BezierHandleType.vector) {
                         ctx.moveTo(x2, y2);
                         ctx.lineTo(cx2, cy2);
-                        ctx.lineWidth = 2;
-                        ctx.strokeStyle = "#666666";
-                        ctx.stroke();
-                        ctx.fillStyle = bezierHandleColor;
-                        ctx.beginPath();
-                        ctx.arc(cx1, cy1, EdConst.timelineBezierHandleSize, 0, 2 * PI);
-                        ctx.fill();
-                        ctx.stroke();
-                        ctx.beginPath();
-                        ctx.arc(cx2, cy2, EdConst.timelineBezierHandleSize, 0, 2 * PI);
-                        ctx.fill();
-                        ctx.stroke();
-                        ctx.restore();
-                        break;
+                    }
+                    ctx.lineWidth = 3;
+                    ctx.strokeStyle = "#ffffff";
+                    ctx.stroke();
+                    ctx.lineWidth = 2;
+                    ctx.strokeStyle = "#666666";
+                    ctx.stroke();
+                    if (cx1 + 10 > tx1 && cx1 - 10 < tx2 && cy1 + 10 > ty1 && cy1 - 10 < ty2 && handleType != BezierHandleType.vector)
+                    this.drawKeyframeHandle(cx1, cy1,
+                        isHoveredThisKeyframe && hoveredHandleType == "bezierC1" ? "hover" : "default",
+                        handleColor, handleHoverColor, handleType != BezierHandleType.auto);
+                    if (cx2 + 10 > tx1 && cx2 - 10 < tx2 && cy2 + 10 > ty1 && cy2 - 10 < ty2 && rightHandleType != BezierHandleType.vector)
+                    this.drawKeyframeHandle(cx2, cy2,
+                        isHoveredThisKeyframe && hoveredHandleType == "bezierC2" ? "hover" : "default",
+                        handleColor, handleHoverColor, handleType != BezierHandleType.auto);
                 }
             }
+            ctx.restore();
 
             // 预览关键帧
             if (this.mouseDragType == MouseDragType.none && newKeyframeTimeline == timeline) {
                 let [x, y] = this.timelineToCanvasPosition(newKeyframeTime, safeTValue(timeline.getTValueByFrame(newKeyframeTime), timeline.tValueType));
-                this.drawKeyframe(round(x) + 0.5, y, timeline.tValueType, "preview");
+                this.drawKeyframe(x, y, timeline.tValueType, "preview");
             }
         }
 
@@ -5931,26 +6926,40 @@ class TanimEditor {
             ctx.lineTo(endX + 0.5, y1 + EdConst.timelineMarkHeight);
         }
         ctx.fill();
+        // 播放位置
+        if (this.isPlaying) {
+            playX = floor(this.timelineToCanvasPosition(this.tanim.getTime(this.playTimeSec, TimeUnit.second, this.loopMode), 0)[0]) + 0.5;
+            if (x1 < playX + 12 && playX < x2) {
+                let y = y1 + EdConst.timelineMarkHeight + EdConst.timelineRulerHeight;
+                ctx.beginPath();
+                ctx.fillStyle = " #999999";
+                ctx.moveTo(playX, y - 14);
+                ctx.lineTo(playX + 12, y - 7);
+                ctx.lineTo(playX, y);
+                ctx.fill();
+            }
+        }
         // 焦点
-        focusX = round(this.timelineToCanvasPosition(this.focusTime, 0)[0]);
+        focusX = floor(this.timelineToCanvasPosition(this.focusTime, 0)[0]) + 0.5;
         if (x1 < focusX + 10 && focusX - 10 < x2) {
             let y = y1 + EdConst.timelineMarkHeight + EdConst.timelineRulerHeight;
             ctx.beginPath();
             ctx.fillStyle = tValueTypeToHSL(this.timelines[this.mainAxis]?.tValueType ?? this.timelines[this.subAxis]?.tValueType ?? DefaultTValueType.px, 50, 40);
-            ctx.moveTo(focusX + 0.5 - 10, y - 12);
-            ctx.lineTo(focusX + 0.5, y + 2);
-            ctx.lineTo(focusX + 0.5 + 10, y - 12);
+            ctx.moveTo(focusX - 10, y - 12);
+            ctx.lineTo(focusX, y + 2);
+            ctx.lineTo(focusX + 10, y - 12);
             ctx.fill();
         }
         // 预览焦点
+        mouseFocusX = floor(this.timelineToCanvasPosition(round(this.mouseTimelineX), 0)[0]) + 0.5;
         if ((this.hover[1] == "mark" || this.hover[1] == "ruler") && round(this.mouseTimelineX) !== this.focusTime) {
             if (x1 < mouseFocusX + 10 && mouseFocusX - 10 < x2) {
                 let y = y1 + EdConst.timelineMarkHeight + EdConst.timelineRulerHeight;
                 ctx.beginPath();
                 ctx.fillStyle = tValueTypeToHSL(this.timelines[this.mainAxis]?.tValueType ?? this.timelines[this.subAxis]?.tValueType ?? DefaultTValueType.px, 50, 70);
-                ctx.moveTo(mouseFocusX + 0.5 - 10, y - 12);
-                ctx.lineTo(mouseFocusX + 0.5, y + 2);
-                ctx.lineTo(mouseFocusX + 0.5 + 10, y - 12);
+                ctx.moveTo(mouseFocusX - 10, y - 12);
+                ctx.lineTo(mouseFocusX, y + 2);
+                ctx.lineTo(mouseFocusX + 10, y - 12);
                 ctx.fill();
             }
         }
@@ -5989,9 +6998,9 @@ class TanimEditor {
         
         // 焦点
         ctx.fillStyle = " #ffffff"
-        ctx.fillRect(floor(scrollFocus) - 2, y2, 5, -EdConst.timelineScrollHeight);
+        ctx.fillRect(round(scrollFocus) - 2, y2, 5, -EdConst.timelineScrollHeight);
         ctx.fillStyle = tValueTypeToHSL(this.timelines[this.mainAxis]?.tValueType ?? this.timelines[this.subAxis]?.tValueType ?? DefaultTValueType.px, 50, 40);
-        ctx.fillRect(floor(scrollFocus) - 1, y2, 3, -EdConst.timelineScrollHeight);
+        ctx.fillRect(round(scrollFocus) - 1, y2, 3, -EdConst.timelineScrollHeight);
 
         // 两边的滚动按钮
         ctx.fillStyle = (this.hover[1] == "scrollLeft" && this.mouseDragType == MouseDragType.none) ? " #cccccc" : " #ffffff";
@@ -6025,9 +7034,165 @@ class TanimEditor {
         ctx.restore();
     }
 
+    /** 预览区  
+     * 锚点：左上，右下 */
+    drawPreview(x1: number, y1: number, x2: number, y2: number) {
+        let ctx = this.ctx;
+        ctx.save();
+
+        ctx.fillStyle = " #ffffff"
+        ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+
+        if (this.tanim) {
+            // 绘制图层
+            let previewCenterX = (x1 + x2) / 2;
+            let previewCenterY = (y1 + y2) / 2;
+            let drawAxisX = (y: number, w?: number) => {
+                let cy = round(this.stageToCanvasPosition(0, y, previewCenterX, previewCenterY)[1]);
+                if (y1 < cy && cy < y2) {
+                    if (w) {
+                        let cx1 = round(this.stageToCanvasPosition(-w, 0, previewCenterX, previewCenterY)[0]);
+                        let cx2 = round(this.stageToCanvasPosition(w, 0, previewCenterX, previewCenterY)[0]);
+                        ctx.fillRect(cx1, cy, cx2 - cx1, 1);
+                    } else {
+                        ctx.fillRect(x1, cy, x2 - x1, 1);
+                    }
+                }
+            }
+            let drawAxisY = (x: number, h?: number) => {
+                let cx = round(this.stageToCanvasPosition(x, 0, previewCenterX, previewCenterY)[0]);
+                if (x1 < cx && cx < x2) {
+                    if (h) {
+                        let cy1 = round(this.stageToCanvasPosition(0, -h, previewCenterX, previewCenterY)[1]);
+                        let cy2 = round(this.stageToCanvasPosition(0, h, previewCenterX, previewCenterY)[1]);
+                        ctx.fillRect(cx, cy1, 1, cy2 - cy1);
+                    } else {
+                        ctx.fillRect(cx, y1, 1, y2 - y1);
+                    }
+                }
+            }
+            ctx.fillStyle = " #666666";
+            drawAxisX(0);
+            drawAxisY(0);
+            ctx.fillStyle = " #cccccc";
+            let stageWidth = (runtime.stageWidth ?? 480) / 2;
+            let stageHeight = (runtime.stageHeight ?? 360) / 2;
+            drawAxisX(stageHeight, stageWidth);
+            drawAxisX(-stageHeight, stageWidth);
+            drawAxisY(stageWidth, stageHeight);
+            drawAxisY(-stageWidth, stageHeight);
+            let stageCtx = this.stageCtx;
+            let stageCenterX = (x2 - x1) / 2;
+            let stageCenterY = (y2 - y1) / 2;
+            let playTimeSec = this.playTimeSec;
+            for (let i = this.layers.length - 1; i >= 0; i --) {
+                let layer = this.layers[i];
+                let snapshot = this.isPlaying ? layer.getSnapshot(playTimeSec, TimeUnit.second, this.loopMode) : layer.getSnapshot(this.focusTime, TimeUnit.frame, this.loopMode);
+                let cos = getSnapshotValue(snapshot, DefaultTValueType.cos) as string;
+                let costumeNames = this.getCostumeNames(layer);
+                let costumeData = this.costumeManager.getCostumeData(this.getSpriteName(layer), `${costumeNames[0]}${costumeNames[1] || cos}${costumeNames[2]}`);
+                if (costumeData.loadState !== CostumeImageLoadState.done) continue;
+                let px = getSnapshotValue(snapshot, DefaultTValueType.px) as number;
+                let py = getSnapshotValue(snapshot, DefaultTValueType.py) as number;
+                let s = getSnapshotValue(snapshot, DefaultTValueType.s) as number;
+                let sx = getSnapshotValue(snapshot, DefaultTValueType.sx) as number;
+                let sy = getSnapshotValue(snapshot, DefaultTValueType.sy) as number;
+                let sqx = getSnapshotValue(snapshot, DefaultTValueType.sqx) as number;
+                let sqy = getSnapshotValue(snapshot, DefaultTValueType.sqy) as number;
+                let d = getSnapshotValue(snapshot, DefaultTValueType.d) as number;
+                stageCtx.save();
+                stageCtx.clearRect(0, 0, x2 - x1, y2 - y1);
+                let spriteSX = s * sx / 10000 * sqx;
+                let sprietSY = s * sy / 10000 * sqy;
+                stageCtx.translate(
+                    stageCenterX + (px - this.previewCameraX) * this.previewCameraS,
+                    stageCenterY - (py - this.previewCameraY) * this.previewCameraS
+                );
+                stageCtx.rotate((d - 90) / 180 * PI);
+                stageCtx.translate(
+                    -costumeData.rotationCenterX * spriteSX * this.previewCameraS,
+                    -costumeData.rotationCenterY * sprietSY * this.previewCameraS
+                );
+                stageCtx.scale(
+                    this.previewCameraS * spriteSX,
+                    this.previewCameraS * sprietSY
+                );
+                stageCtx.drawImage(costumeData.img, 0, 0);
+                ctx.drawImage(this.stageCanvas, x1, y1);
+                stageCtx.restore();
+            }
+
+            // 绘制 PUI
+            for (let pui of this.puis) {
+                let { type, x, y, size: { w, h } } = pui;
+                let centerX = x + w / 2;
+                let centerY = y + h / 2;
+                let isHover = this.hover[0] == "preview" && this.hover[1] == "pui" && this.hover[2] == type;
+                ctx.fillStyle = isHover ? " #e6e6e6" : " #ffffff99";
+                this.drawRoundedRect(x, y, w, h, 4);
+                ctx.fill();
+                if (pui.text !== undefined) {
+                    let text = getTranslate(pui.text);
+                    let isGhost = false;
+                    switch (type) {
+                        case PUIType.spriteName:
+                            text = text.replace("[SpriteName]", this.getSpriteName(this.tanim) || (isGhost = true, "-")); // 一种很酷的写法，先赋值，再逗号将其丢弃
+                            break;
+                        case PUIType.costumeName0:
+                            text = text.replace("[CostumeName0]", this.getCostumeNames(this.tanim)[0] || (isGhost = true, "-"));
+                            break;
+                        case PUIType.costumeName1:
+                            text = text.replace("[CostumeName1]", this.getCostumeNames(this.tanim)[1] || (isGhost = true, "-"));
+                            break;
+                        case PUIType.costumeName2:
+                            text = text.replace("[CostumeName2]", this.getCostumeNames(this.tanim)[2] || (isGhost = true, "-"));
+                            break;
+                    }
+                    ctx.font = EdConst.puiFont;
+                    ctx.textAlign = "left";
+                    ctx.textBaseline = "alphabetic";
+                    ctx.fillStyle = isGhost ? " #999999" : " #666666";
+                    ctx.fillText(text, x + 2, centerY + h / 5, w - 4);
+                }
+                ctx.strokeStyle = " #666666";
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                switch (type) {
+                    case PUIType.zoomIn:
+                    case PUIType.zoomOut:
+                        ctx.moveTo(centerX + 7, centerY + 7);
+                        ctx.lineTo(centerX + 2, centerY + 2);
+                        ctx.stroke();
+                        ctx.beginPath();
+                        ctx.arc(centerX - 2, centerY - 2, 6, 0, 2 * PI);
+                        ctx.moveTo(centerX - 2 - 3, centerY - 2);
+                        ctx.lineTo(centerX - 2 + 3, centerY - 2);
+                        if (type == PUIType.zoomIn) {
+                            ctx.moveTo(centerX - 2, centerY - 2 - 3);
+                            ctx.lineTo(centerX - 2, centerY - 2 + 3);
+                        }
+                        ctx.stroke();
+                        break;
+                    case PUIType.resetCamera:
+                        ctx.moveTo(centerX - 6, centerY - 3);
+                        ctx.lineTo(centerX + 6, centerY - 3);
+                        ctx.moveTo(centerX - 6, centerY + 3);
+                        ctx.lineTo(centerX + 6, centerY + 3);
+                        ctx.stroke();
+                        break;
+                }
+            }
+        }
+
+        ctx.restore();
+    }
+
     /** 绘制一个关键帧  
-     * 锚点：理论上讲是正中间 */
+     * 锚点：理论上讲是正中间  
+     * 坐标会自动取整 */
     drawKeyframe(x: number, y: number, tValueType: string, type: "default" | "preview" | "hover" | "select" | "drag" | "delete" = "default") {
+        x = floor(x) + 0.5;
+        y = floor(y) + 0.5;
         if (
             x + (EdConst.timelineKeyframeSize + 5) < this.leftBarWidth ||
             this.canvasWidth - this.rightBarWidth < x - (EdConst.timelineKeyframeSize + 5) ||
@@ -6114,6 +7279,50 @@ class TanimEditor {
         ctx.restore();
     }
 
+    /** 绘制一个手柄（关键帧的控制点）  
+     * 锚点：理论上讲是正中间  
+     * 坐标会自动取整 */
+    drawKeyframeHandle(x: number, y: number, state: "default" | "hover", handleColor: string, handleHoverColor: string, isDragable: boolean = true) {
+        x = floor(x) + 0.5;
+        y = floor(y) + 0.5;
+        let ctx = this.ctx;
+        ctx.save();
+        ctx.beginPath();
+        ctx.fillStyle = handleColor;
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = " #666666";
+        if (state == "default") {
+            ctx.arc(x, y, EdConst.timelineHandleSize, 0, 2 * PI);
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = " #ffffff";
+            ctx.stroke();
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = " #666666";
+            ctx.stroke();
+            if (!isDragable) {
+                ctx.beginPath();
+                let d = EdConst.timelineHandleSize / SQRT2;
+                ctx.moveTo(x - d, y - d);
+                ctx.lineTo(x + d, y + d);
+                ctx.moveTo(x - d, y + d);
+                ctx.lineTo(x + d, y - d);
+                ctx.stroke();
+            }
+        } else if (state == "hover") {
+            ctx.arc(x, y, EdConst.timelineHandleSize + 1, 0, 2 * PI);
+            ctx.fillStyle = handleHoverColor;
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = " #ffffff";
+            ctx.stroke();
+            ctx.lineWidth = 1;
+            ctx.strokeStyle = " #666666";
+            ctx.stroke();
+        }
+        ctx.restore();
+    }
+
     /** 左栏  
      * 锚点：左上，右下 */
     drawLeftBar(x1: number, y1: number, x2: number, y2: number) {
@@ -6122,12 +7331,168 @@ class TanimEditor {
 
         ctx.fillStyle = " #f2f2f2"
         ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+        let centerX = (x1 + x2) / 2;
+
+        ctx.font = EdConst.tuiFont;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        if (this.tanim) for (let i = 0; i <= this.tValueNames.length; i ++) {
+            let tValueName = (this.tValueNames[i] ?? null) as string | null;
+            let top = y1 + (i - this.TUIScroll) * EdConst.tuiHeight;
+            if (top >= y2) break;
+            let bottom = top + EdConst.tuiHeight;
+            if (bottom <= y1) continue;
+            let centerY = (top + bottom) / 2;
+            if (this.hover[0] == "tValueNameBar" && this.hover[1] == "tui" && this.tValueNames[this.hover[2] as number] == tValueName) {
+                ctx.fillStyle = " #cccccc";
+                ctx.fillRect(x1, top + 1, x2, bottom - top);
+            }
+
+            let circleY = top + 22;
+            let textY = bottom - 6;
+            ctx.beginPath();
+            ctx.arc(centerX, circleY, 16, 0, 2 * PI);
+            ctx.fillStyle = tValueTypeToHSL(tValueName ?? "__CreateNewTimeline__", 75, 55);
+            ctx.fill();
+            if (this.tValueName == tValueName) {
+                ctx.lineWidth = 5;
+                ctx.strokeStyle = " #ffffff";
+                ctx.stroke();
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = " #666666";
+                ctx.stroke();
+            }
+            ctx.strokeStyle = " #ffffff";
+            ctx.lineWidth = 3;
+            ctx.lineCap = "round";
+            ctx.fillStyle = " #666666";
+            ctx.beginPath();
+            switch (tValueName) {
+                case `${DefaultTValueType.px}|${DefaultTValueType.py}`:
+                    ctx.moveTo(centerX - 6, circleY + 6);
+                    ctx.lineTo(centerX + 6, circleY - 6);
+                    ctx.moveTo(centerX - 1, circleY - 6);
+                    ctx.lineTo(centerX + 6, circleY - 6);
+                    ctx.lineTo(centerX + 6, circleY + 1);
+                    ctx.stroke();
+                    ctx.fillText(getTranslate(Strings.eTUINamePxPy), centerX, textY, x2 - x1 - 2);
+                    break;
+                case DefaultTValueType.s:
+                    ctx.moveTo(centerX + 1, circleY - 7);
+                    ctx.lineTo(centerX + 7, circleY - 7);
+                    ctx.lineTo(centerX + 7, circleY - 1);
+                    ctx.moveTo(centerX - 1, circleY + 7);
+                    ctx.lineTo(centerX - 7, circleY + 7);
+                    ctx.lineTo(centerX - 7, circleY + 1);
+                    ctx.stroke();
+                    ctx.fillText(getTranslate(Strings.eTUINameS), centerX, textY, x2 - x1 - 2);
+                    break;
+                case `${DefaultTValueType.sx}|${DefaultTValueType.sy}`:
+                    ctx.moveTo(centerX - 4, circleY + 4);
+                    ctx.lineTo(centerX + 4, circleY - 4);
+                    ctx.moveTo(centerX + 4, circleY - 9);
+                    ctx.lineTo(centerX + 4, circleY - 4);
+                    ctx.lineTo(centerX + 9, circleY - 4);
+                    ctx.moveTo(centerX - 4, circleY + 9);
+                    ctx.lineTo(centerX - 4, circleY + 4);
+                    ctx.lineTo(centerX - 9, circleY + 4);
+                    ctx.stroke();
+                    ctx.fillText(getTranslate(Strings.eTUINameSxSy), centerX, textY, x2 - x1 - 2);
+                    break;
+                case DefaultTValueType.sq:
+                    ctx.ellipse(centerX, circleY, 9.5, 5, -0.25 * PI, 0, 2 * PI);
+                    ctx.stroke();
+                    ctx.fillText(getTranslate(Strings.eTUINameSq), centerX, textY, x2 - x1 - 2);
+                    break;
+                case DefaultTValueType.d:
+                    ctx.arc(centerX - 0.3, circleY, 7.5, 0.5 * PI, 0);
+                    ctx.moveTo(centerX - 0.3 + 7.5 - 4, circleY - 3);
+                    ctx.lineTo(centerX - 0.3 + 7.5, circleY);
+                    ctx.lineTo(centerX - 0.3 + 7.5 + 3, circleY - 4);
+                    ctx.stroke();
+                    ctx.fillText(getTranslate(Strings.eTUINameD), centerX, textY, x2 - x1 - 2);
+                    break;
+                case DefaultTValueType.cos:
+                    ctx.moveTo(centerX - 7, circleY - 3.5);
+                    ctx.lineTo(centerX + 8, circleY - 3.5);
+                    ctx.moveTo(centerX + 8 - 3, circleY - 3.5 - 3);
+                    ctx.lineTo(centerX + 8, circleY - 3.5);
+                    ctx.lineTo(centerX + 8 - 3, circleY - 3.5 + 3);
+                    ctx.moveTo(centerX + 7, circleY + 3.5);
+                    ctx.lineTo(centerX - 8, circleY + 3.5);
+                    ctx.moveTo(centerX - 8 + 3, circleY + 3.5 - 3);
+                    ctx.lineTo(centerX - 8, circleY + 3.5);
+                    ctx.lineTo(centerX - 8 + 3, circleY + 3.5 + 3);
+                    ctx.stroke();
+                    ctx.fillText(getTranslate(Strings.eTUINameCos), centerX, textY, x2 - x1 - 2);
+                    break;
+                case null:
+                    ctx.moveTo(centerX - 8, circleY);
+                    ctx.lineTo(centerX + 8, circleY);
+                    ctx.moveTo(centerX, circleY - 8);
+                    ctx.lineTo(centerX, circleY + 8);
+                    ctx.stroke();
+                    ctx.fillText(getTranslate(Strings.eTUINameCreateNewTValueType), centerX, textY, x2 - x1 - 2);
+                    break;
+                default:
+                    ctx.arc(centerX, circleY, 7, 0, 2 * PI);
+                    ctx.stroke();
+                    ctx.fillText(tValueName, centerX, textY, x2 - x1 - 2);
+                    break;
+            }
+
+            ctx.fillStyle = " #666666";
+            ctx.fillRect(x1, round(bottom), x2 - x1, 1);
+        }
+
+        // 撤销和还原
+        let undoX = x1 + EdConst.undoSize / 2;
+        let undoY = y2 - EdConst.undoSize / 2;
+        ctx.fillStyle = " #f2f2f2"
+        ctx.fillRect(x1, y2, x2 - x1, -EdConst.undoSize);
+        if (this.commandStack.isCanUndo) {
+            if (this.hover[0] == "undo") {
+                ctx.fillStyle = " #cccccc";
+                ctx.fillRect(x1, y2, EdConst.undoSize, -EdConst.undoSize);
+            }
+            ctx.beginPath();
+            ctx.moveTo(undoX - 1, undoY - 4);
+            ctx.bezierCurveTo(undoX + 5, undoY - 4, undoX + 10, undoY + 1, undoX + 10, undoY + 10);
+            ctx.bezierCurveTo(undoX + 8, undoY + 4, undoX + 4, undoY + 1, undoX - 1, undoY + 1);
+            ctx.lineTo(undoX - 1, undoY + 6);
+            ctx.lineTo(undoX - 10, undoY - 1.5);
+            ctx.lineTo(undoX - 1, undoY - 9);
+            ctx.lineTo(undoX - 1, undoY - 4);
+            ctx.fillStyle = " #666666";
+            ctx.fill();
+        }
+
+        if (this.commandStack.isCanRedo) {
+            undoX += EdConst.undoSize;
+            if (this.hover[0] == "redo") {
+                ctx.fillStyle = " #cccccc";
+                ctx.fillRect(x1 + EdConst.undoSize, y2, EdConst.undoSize, -EdConst.undoSize);
+            }
+            ctx.beginPath();
+            ctx.moveTo(undoX + 1, undoY - 4);
+            ctx.bezierCurveTo(undoX - 5, undoY - 4, undoX - 10, undoY + 1, undoX - 10, undoY + 10);
+            ctx.bezierCurveTo(undoX - 8, undoY + 4, undoX - 4, undoY + 1, undoX + 1, undoY + 1);
+            ctx.lineTo(undoX + 1, undoY + 6);
+            ctx.lineTo(undoX + 10, undoY - 1.5);
+            ctx.lineTo(undoX + 1, undoY - 9);
+            ctx.lineTo(undoX + 1, undoY - 4);
+            ctx.fillStyle = " #666666";
+            ctx.fill();
+        }
 
         ctx.strokeStyle = " #666666";
         ctx.lineWidth = 1;
         ctx.beginPath();
-        ctx.moveTo(x2 - 0.5, y1);
-        ctx.lineTo(x2 - 0.5, y2);
+        undoY = y2 - EdConst.undoSize;
+        ctx.moveTo(x1, ceil(undoY) - 0.5);
+        ctx.lineTo(x2, ceil(undoY) - 0.5);
+        ctx.moveTo(ceil(x2) - 0.5, y1);
+        ctx.lineTo(ceil(x2) - 0.5, y2);
         ctx.stroke();
 
         ctx.restore();
@@ -6175,8 +7540,8 @@ class TanimEditor {
         for (let folderName in tanimFolders) {
             let {color, indentation, ranges} = tanimFolders[folderName];
             for (let {from, to} of ranges) {
-                let bgy1 = y1 + EdConst.tanimListLineHeight * (from + 1 - scroll) - 0.5;
-                let bgy2 = y1 + EdConst.tanimListLineHeight * (to + 1 - scroll) - 0.5;
+                let bgy1 = y1 + EdConst.tanimListLineHeight * (from + 1 - scroll);
+                let bgy2 = y1 + EdConst.tanimListLineHeight * (to + 1 - scroll);
 
                 if (bgy2 < y1 + EdConst.tanimListLineHeight) continue;
                 if (bgy1 > y2) continue;
@@ -6186,23 +7551,23 @@ class TanimEditor {
 
                 if (bgx2 <= bgx1) continue;
 
-                let lbgy1 = max(bgy1, y1 + EdConst.tanimListLineHeight)
-                let lbgy2 = min(bgy2, y2)
+                let lbgy1 = max(bgy1, y1 + EdConst.tanimListLineHeight);
+                let lbgy2 = min(bgy2, y2);
 
                 ctx.fillStyle = color;
-                ctx.fillRect(bgx1, lbgy1, bgx2 - bgx1, lbgy2 - lbgy1);
+                ctx.fillRect(floor(bgx1), lbgy1, ceil(bgx2 - bgx1), lbgy2 - lbgy1);
                 ctx.beginPath();
                 if (to - from >= 3) {
-                    ctx.moveTo(bgx1, max(bgy1, y1) + EdConst.tanimListLineHeight);
-                    ctx.lineTo(bgx1, min(y2, bgy2 - EdConst.tanimListLineHeight));
+                    ctx.moveTo(floor(bgx1) + 0.5, floor(max(bgy1, y1) + EdConst.tanimListLineHeight) + 0.5);
+                    ctx.lineTo(floor(bgx1) + 0.5, ceil(min(y2, bgy2 - EdConst.tanimListLineHeight)) - 0.5);
                 }
                 if (bgy1 >= y1 + EdConst.tanimListLineHeight - 1) {
-                    ctx.moveTo(bgx1, bgy1);
-                    ctx.lineTo(bgx2, bgy1);
+                    ctx.moveTo(floor(bgx1) + 0.5, floor(bgy1) + 0.5);
+                    ctx.lineTo(floor(bgx2) + 0.5, floor(bgy1) + 0.5);
                 }
                 if (bgy2 < y2) {
-                    ctx.moveTo(bgx1, bgy2);
-                    ctx.lineTo(bgx2, bgy2);
+                    ctx.moveTo(floor(bgx1) + 0.5, ceil(bgy2) - 0.5);
+                    ctx.lineTo(floor(bgx2) + 0.5, ceil(bgy2) - 0.5);
                 }
                 ctx.stroke();
             }
@@ -6539,6 +7904,7 @@ class TanimEditor {
             type == KUIType.paramRadio && keyframe && kui.paramValue &&
             keyframe.getParam(kui.paramType as EaseParamType) == kui.paramValue
         ) {
+            ctx.lineWidth = 1;
             ctx.strokeStyle = c1;
             this.drawRoundedRect(x, y, w, h, radius);
             ctx.stroke();
@@ -7257,7 +8623,7 @@ class CQEasyTanim {
     }
 
     constructor() {
-        vm.runtime.on("PROJECT_LOADED", () => this.OnClickEditorButton());
+        runtime.on("PROJECT_LOADED", () => this.OnClickEditorButton());
     }
 
     MGetTanimNames(): MenuItem[] {
@@ -7351,7 +8717,7 @@ class CQEasyTanim {
 
     [Opcode.BGetContextValue]({tanimValueType}: any): TValue {
         tanimValueType = Cast.toString(tanimValueType);
-        return safeTValue(TheTanimManager.context[tanimValueType], tanimValueType);
+        return TheTanimManager.getContextValue(tanimValueType);
     }
 
     [Opcode.BCreateSnapshot]({tanimName, loopMode, time, timeUnit}: any): number {
@@ -7382,7 +8748,7 @@ class CQEasyTanim {
         let snapshot = TheTanimManager.getSnapshotByIndex(snapshotIndex - 1);
         if (snapshot === null) return safeTValue(null, tanimValueType);
         tanimValueType = Cast.toString(tanimValueType);
-        return safeTValue(snapshot[tanimValueType], tanimValueType);
+        return getSnapshotValue(snapshot, tanimValueType);
     }
 
     [Opcode.BSetContextBySnapshot]({snapshotIndex}: any): void {
@@ -7414,6 +8780,17 @@ class CQEasyTanim {
 
 Scratch.extensions.register(new CQEasyTanim());
 
-console.log(`=== Easy Tanim ${TheExtensionVersion} ===`);
+console.log(`=== Easy Tanim ${TheExtensionVersion} ===
+
+https://github.com/Heaveeeen/CQEasyTanim
+
+这是一个 Scratch 扩展。本扩展能够轻松实现时间轴动画。内置动画编辑器，完美兼容 turbowarp。
+
+作者：苍穹
+感谢 arkos、白猫、simple、允某、酷可mc 等人，他们给我提供了许多帮助，在此不一一列举。（太多了列不出来）
+arkos 给我提供了很多技术上的帮助，教我怎么写扩展，我爱他❤️
+一些缓动函数抄自 https://blog.51cto.com/u_15057855/4403832 （从 Animator 扩展那里翻到的链接，非常感谢！）
+
+=== Easy Tanim ${TheExtensionVersion} ===`);
 
 })(Scratch);

@@ -29,10 +29,13 @@ declare interface costume {
         /**
         * @param {string} [contentType] - Optionally override the content type to be included in the data URI.
         * @returns {string} - A data URI representing the asset's data.
+        * 
+        * 备注：这个东西自带缓存机制，对同一个没有修改过的造型反复调用这个方法，只会返回缓存好的URI。
         */
         encodeDataURI(contentType?: string): string,
     },
     assetId: string,
+    bitmapResolution: number,
     dataFormat: string,
     md5: string,
     name: string,
@@ -70,6 +73,7 @@ declare interface RenderedTarget {
     createComment(id: string, blockId: string | null, text: string, x: number, y: number, width: number, height: number, minimized: boolean): void,
     sprite: Sprite,
 
+    /** 经过简单测试得知，对于同一个角色的不同克隆体，这个函数返回同一个数组的引用 */
     getCostumes(): costume[],
     getCostumeIndexByName(name: string): number,
     getCurrentCostume(): costume,
@@ -213,16 +217,21 @@ declare const Scratch: {
     /** Gandi 会在扩展加载结束后，将 Scratch.vm 替换为 null，务必自行保留 vm 的引用 */
     vm: {
         runtime: {
-            /** 添加一个事件监听器 */
+            /** 添加一个事件监听器，函数在 Scratch 执行完毕事件之后才会运作 */
             addListener(type: RuntimeEventName, listener: Function): any,
-            /** 添加一个事件监听器 */
+            /** 添加一个事件监听器，函数在 Scratch 执行完毕事件之后才会运作 */
             on(type: RuntimeEventName, listener: Function): any,
+            /** 添加一个事件监听器，函数会在 Scratch 执行事件之前运作 */
+            prependListener(type: RuntimeEventName, listener: Function): any,
             /** 触发一个事件，如果触发成功则返回 true */
             emit(type: RuntimeEventName): boolean,
             targets: RenderedTarget[];
             /** 我只知道这个似乎可以用于判断是否为 Gandi */
             gandi?: any,
             getSpriteTargetByName(name: string): RenderedTarget | undefined,
+            getEditingTarget(): RenderedTarget | null,
+            stageWidth: number,
+            stageHeight: number,
         },
     },
 
