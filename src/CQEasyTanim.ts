@@ -3490,6 +3490,7 @@ class TanimEditor {
                     for (let i = tanims.length - 1; i >= 0; i--) {
                         if (tanims[i].name.startsWith(dirStr)) {
                             tanims.splice(i + 1, 0, tanim);
+                            this.updateTanimTree();
                             saveData();
                             return;
                         }
