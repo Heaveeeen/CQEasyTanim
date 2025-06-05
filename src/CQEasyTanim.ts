@@ -2112,7 +2112,7 @@ const enum EdConst {
     layerBarHeight = 100,
     controlBarHeight = 50,
     hintBarHeight = 50,
-    keyframeBarHeight = 200,
+    keyframeBarHeight = 240,
 
     leftBarWidthMin = 60,
     leftBarWidthMax = 200,
@@ -2143,8 +2143,8 @@ const enum EdConst {
 
     kuiSpacing = 5,
     kuiLineHeight = 20,
-    kuiLineSpacingLarge = 8,
-    kuiLineSpacingSmall = 4,
+    kuiLineSpacingLarge = 5,
+    kuiLineSpacingSmall = 3,
 
     tuiHeight = 60,
     undoSize = 30,
@@ -3960,7 +3960,7 @@ class TanimEditor {
                         return this.alignBezier(left, mid, right, handleType, "left");
                     }
                 }
-                if (isHasLeftHandle && right) {
+                if (isHasRightHandle && right) {
                     if (cxRight < 0 || right.x - mid.x < cxRight) {
                         cxRight = clamp(cxRight, 0, right.x - mid.x);
                         mid.setParam("bezierCX1", cxRight);
@@ -4209,14 +4209,14 @@ class TanimEditor {
             return;
         }
         // 选中了末尾帧
-        if (
+        /*if (
             (idx0 >= 0 && !this.timelines[0]?.keyframes[idx0 + 1]) ||
             (idx1 >= 0 && !this.timelines[1]?.keyframes[idx1 + 1])
         ) {
             y += EdConst.kuiLineHeight + EdConst.kuiLineSpacingLarge;
             kuis.push(new KUI(KUIType.ghostLabel, 0, y, width, { text: Strings.eKUILastSelect }));
             return;
-        }
+        }*/
         // 缓动模式
         y += EdConst.kuiLineHeight + EdConst.kuiLineSpacingLarge;
         kuis.push(new KUI(KUIType.interType, 0, y, { w: width, h: EdConst.kuiLineHeight + 6 }, { interType: keyframe.interType, text: Strings.eKUIInterType }));
@@ -4292,16 +4292,20 @@ class TanimEditor {
                     kuis.push(new KUI(KUIType.paramRadio, 2 * radioStep, y, radioWidth, { paramType: "easeType", paramValue: EaseType.inOut }));
                     kuis.push(new KUI(KUIType.paramRadio, 3 * radioStep, y, radioWidth, { paramType: "easeType", paramValue: EaseType.outIn }));
                     break;
-                case InterType.bezier:
-                    // 手柄类型
-                    y += EdConst.kuiLineHeight + EdConst.kuiLineSpacingLarge;
-                    kuis.push(new KUI(KUIType.label, 0, y, width, { text: Strings.eKUIBezierHandleType }));
-                    y += EdConst.kuiLineHeight;
-                    kuis.push(new KUI(KUIType.paramRadio, 3 * radioStep, y, radioWidth, { paramType: "bezierHandleType", paramValue: BezierHandleType.auto }));
-                    kuis.push(new KUI(KUIType.paramRadio, 0, y, radioWidth, { paramType: "bezierHandleType", paramValue: BezierHandleType.aligned }));
-                    kuis.push(new KUI(KUIType.paramRadio, radioStep, y, radioWidth, { paramType: "bezierHandleType", paramValue: BezierHandleType.free }));
-                    kuis.push(new KUI(KUIType.paramRadio, 2 * radioStep, y, radioWidth, { paramType: "bezierHandleType", paramValue: BezierHandleType.vector }));
-                    break;
+            }
+            if (
+                keyframe.interType == InterType.bezier ||
+                this.timelines[0]?.keyframes[idx0 - 1]?.interType == InterType.bezier ||
+                this.timelines[1]?.keyframes[idx1 - 1]?.interType == InterType.bezier
+            ) {
+                // 手柄类型
+                y += EdConst.kuiLineHeight + EdConst.kuiLineSpacingLarge;
+                kuis.push(new KUI(KUIType.label, 0, y, width, { text: Strings.eKUIBezierHandleType }));
+                y += EdConst.kuiLineHeight;
+                kuis.push(new KUI(KUIType.paramRadio, 3 * radioStep, y, radioWidth, { paramType: "bezierHandleType", paramValue: BezierHandleType.auto }));
+                kuis.push(new KUI(KUIType.paramRadio, 0, y, radioWidth, { paramType: "bezierHandleType", paramValue: BezierHandleType.aligned }));
+                kuis.push(new KUI(KUIType.paramRadio, radioStep, y, radioWidth, { paramType: "bezierHandleType", paramValue: BezierHandleType.free }));
+                kuis.push(new KUI(KUIType.paramRadio, 2 * radioStep, y, radioWidth, { paramType: "bezierHandleType", paramValue: BezierHandleType.vector }));
             }
         }
     }
@@ -5026,6 +5030,10 @@ class TanimEditor {
                         this.kuiState = KUIState.params;
                         let interType = hover[2] as InterType;
                         let newKeyframe = new Keyframe(keyframe.x, keyframe.y, interType);
+                        let easeType = keyframe.params?.["easeType"];
+                        if (easeType) newKeyframe.setParam("easeType", easeType);
+                        let bezierHandleType = keyframe.params?.["bezierHandleType"];
+                        if (bezierHandleType) newKeyframe.setParam("bezierHandleType", bezierHandleType);
                         this.commandStack.PushAndDo(new EditAKeyframeCommand(this, timeline, keyframe, newKeyframe));
                     }
                     break;
@@ -5158,7 +5166,15 @@ class TanimEditor {
                         if (!timeline) break;
                         let leftKeyframe = timeline.findLeftKeyframe(this.focusTime);
                         let keyframe = new Keyframe(this.focusTime, timeline.getTValueByFrame(this.focusTime), leftKeyframe?.interType ?? InterType.linear);
+                        let easeType = leftKeyframe?.params?.["easeType"];
+                        if (easeType) keyframe.setParam("easeType", easeType);
+                        let bezierHandleType = leftKeyframe?.params?.["bezierHandleType"];
+                        if (bezierHandleType) keyframe.setParam("bezierHandleType", bezierHandleType);
                         this.commandStack.PushAndDo(new AddKeyframesCommand(this, this.tanim, new TKPair(timeline, keyframe)));
+                        if (keyframe.interType == InterType.bezier) {
+                            let idx = timeline.keyframes.indexOf(keyframe);
+                            this.alignBezier(timeline.keyframes[idx - 1] ?? null, keyframe, timeline.keyframes[idx + 1] ?? null, BezierHandleType.auto);
+                        }
                     }
                     break;
                 case CUIType.deleteKeyframe:
@@ -5212,7 +5228,15 @@ class TanimEditor {
                             let tValue =  timeline.getTValueByFrame(time);
                             let leftKeyframe = timeline.findLeftKeyframe(time);
                             let keyframe = new Keyframe(time, tValue, leftKeyframe?.interType ?? InterType.linear);
+                            let easeType = leftKeyframe?.params?.["easeType"];
+                            if (easeType) keyframe.setParam("easeType", easeType);
+                            let bezierHandleType = leftKeyframe?.params?.["bezierHandleType"];
+                            if (bezierHandleType) keyframe.setParam("bezierHandleType", bezierHandleType);
                             this.commandStack.PushAndDo(new AddKeyframesCommand(this, this.tanim, new TKPair(timeline, keyframe)));
+                            if (keyframe.interType == InterType.bezier) {
+                                let idx = timeline.keyframes.indexOf(keyframe);
+                                this.alignBezier(timeline.keyframes[idx - 1] ?? null, keyframe, timeline.keyframes[idx + 1] ?? null, BezierHandleType.auto);
+                            }
                             // 在创建关键帧的同时，自动选中新建的关键帧
                             if (event?.shiftKey) {
                                 this.commandStack.PushAndDo(new SelectKeyframesCommand(this, ...this.selectedKeyframes, keyframe));
@@ -6724,6 +6748,7 @@ class TanimEditor {
         let drawTValueCurve = (timeline: Timeline) => {
             let tValueType = timeline.tValueType;
             ctx.beginPath();
+            /*
             for (x = x1; x < x2; x += step) {
                 let [time,] = this.canvasTotimelinePosition(x, 0);
                 let tValue = safeTValue(timeline.getTValueByFrame(time), tValueType);
@@ -6732,6 +6757,70 @@ class TanimEditor {
                     ctx.moveTo(x, y);
                 } else {
                     ctx.lineTo(x, y);
+                }
+            }
+            */
+            for (let i = -1; i < timeline.keyframes.length; i ++) {
+                let keyframe = timeline.keyframes[i] as Keyframe | undefined;
+                let rightKeyframe = timeline.keyframes[i + 1] as Keyframe | undefined;
+                let tValue;
+                if (!keyframe) {
+                    // 第一个关键帧之前
+                    if (!rightKeyframe) {
+                        let y = this.timelineToCanvasPosition(0, timeline.getTValueByFrame(0))[1];
+                        ctx.moveTo(x1, y);
+                        ctx.lineTo(x2, y);
+                        break;
+                    }
+                    let [x, y] = this.timelineToCanvasPosition(rightKeyframe.x, rightKeyframe.y);
+                    if (x < x1) continue;
+                    ctx.moveTo(x1, y);
+                    ctx.lineTo(x, y);
+                    continue;
+                }
+                if (!rightKeyframe) {
+                    // 最后一个关键帧之后
+                    if (!keyframe) break;
+                    let [x, y] = this.timelineToCanvasPosition(keyframe.x, keyframe.y);
+                    if (x > x2) break;
+                    ctx.moveTo(x, y);
+                    ctx.lineTo(x2, y);
+                    break;
+                }
+                let [xRight, yRight] = this.timelineToCanvasPosition(rightKeyframe.x, rightKeyframe.y);
+                if (xRight < x1) continue;
+                let [xLeft, yLeft] = this.timelineToCanvasPosition(keyframe.x, keyframe.y);
+                if (xLeft > x2) break;
+                if (keyframe.interType == InterType.const || typeof keyframe.y == "string" || typeof rightKeyframe.y == "string") {
+                    ctx.moveTo(xLeft, yLeft);
+                    ctx.lineTo(xRight, yLeft);
+                    continue;
+                }
+                switch (keyframe.interType) {
+                    case InterType.linear:
+                        ctx.moveTo(xLeft, yLeft);
+                        ctx.lineTo(xRight, yRight);
+                        break;
+                    case InterType.bezier:
+                        let cx1 = keyframe.getParam("bezierCX1") as number + keyframe.x;
+                        let cy1 = keyframe.getParam("bezierCY1") as number + keyframe.y;
+                        let cx2 = keyframe.getParam("bezierCX2") as number + rightKeyframe.x;
+                        let cy2 = keyframe.getParam("bezierCY2") as number + rightKeyframe.y;
+                        let [cxLeft, cyLeft] = this.timelineToCanvasPosition(cx1, cy1);
+                        let [cxRight, cyRight] = this.timelineToCanvasPosition(cx2, cy2);
+                        ctx.moveTo(xLeft, yLeft);
+                        ctx.bezierCurveTo(cxLeft, cyLeft, cxRight, cyRight, xRight, yRight);
+                        break;
+                    default:
+                        // 这里姑且这么写。。
+                        ctx.moveTo(xLeft, yLeft);
+                        for (let x = ceil(xLeft); x <= xRight; x ++) {
+                            let time = this.canvasTotimelinePosition(x, 0)[0];
+                            let tValue = Keyframe.Ease(time, keyframe, rightKeyframe);
+                            let y = this.timelineToCanvasPosition(0, tValue)[1];
+                            if (x > x2) break;
+                            ctx.lineTo(x, clamp(y, y1, y2));
+                        }
                 }
             }
             ctx.lineWidth = 5;
@@ -6779,7 +6868,7 @@ class TanimEditor {
                 if (!handleInfo) continue;
                 let isHoveredThisKeyframe = isHoveredThisTimeline &&
                     this.hoveredHandle?.keyframe == handleInfo.keyframe ||
-                    this.mouseDragHandle?.keyframe == handleInfo.keyframe;
+                    (this.mouseDragType == MouseDragType.moveKeyframeHandle && this.mouseDragHandle?.keyframe == handleInfo.keyframe);
                 let hoveredHandleType = (this.mouseDragType == MouseDragType.moveKeyframeHandle && this.mouseDragHandle?.type) || this.hoveredHandle?.type;
                 ctx.beginPath();
                 ctx.lineWidth = 2;
@@ -6830,7 +6919,7 @@ class TanimEditor {
                     if (cx2 + 10 > tx1 && cx2 - 10 < tx2 && cy2 + 10 > ty1 && cy2 - 10 < ty2 && rightHandleType != BezierHandleType.vector)
                     this.drawKeyframeHandle(cx2, cy2,
                         isHoveredThisKeyframe && hoveredHandleType == "bezierC2" ? "hover" : "default",
-                        handleColor, handleHoverColor, handleType != BezierHandleType.auto);
+                        handleColor, handleHoverColor, rightHandleType != BezierHandleType.auto);
                 }
             }
             ctx.restore();
@@ -7052,8 +7141,8 @@ class TanimEditor {
                 let cy = round(this.stageToCanvasPosition(0, y, previewCenterX, previewCenterY)[1]);
                 if (y1 < cy && cy < y2) {
                     if (w) {
-                        let cx1 = round(this.stageToCanvasPosition(-w, 0, previewCenterX, previewCenterY)[0]);
-                        let cx2 = round(this.stageToCanvasPosition(w, 0, previewCenterX, previewCenterY)[0]);
+                        let cx1 = clamp(round(this.stageToCanvasPosition(-w, 0, previewCenterX, previewCenterY)[0]), x1, x2);
+                        let cx2 = clamp(round(this.stageToCanvasPosition(w, 0, previewCenterX, previewCenterY)[0]), x1, x2);
                         ctx.fillRect(cx1, cy, cx2 - cx1, 1);
                     } else {
                         ctx.fillRect(x1, cy, x2 - x1, 1);
@@ -7064,8 +7153,8 @@ class TanimEditor {
                 let cx = round(this.stageToCanvasPosition(x, 0, previewCenterX, previewCenterY)[0]);
                 if (x1 < cx && cx < x2) {
                     if (h) {
-                        let cy1 = round(this.stageToCanvasPosition(0, -h, previewCenterX, previewCenterY)[1]);
-                        let cy2 = round(this.stageToCanvasPosition(0, h, previewCenterX, previewCenterY)[1]);
+                        let cy1 = clamp(round(this.stageToCanvasPosition(0, -h, previewCenterX, previewCenterY)[1]), y1, y2);
+                        let cy2 = clamp(round(this.stageToCanvasPosition(0, h, previewCenterX, previewCenterY)[1]), y1, y2);
                         ctx.fillRect(cx, cy1, 1, cy2 - cy1);
                     } else {
                         ctx.fillRect(cx, y1, 1, y2 - y1);

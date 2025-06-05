@@ -2179,6 +2179,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                     for (let i = tanims.length - 1; i >= 0; i--) {
                         if (tanims[i].name.startsWith(dirStr)) {
                             tanims.splice(i + 1, 0, tanim);
+                            this.updateTanimTree();
                             saveData();
                             return;
                         }
@@ -2317,7 +2318,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
             this.updateTree(this.layerTree, this.layerFolders, this.layers, this.foldedLayerFolders);
         }
         scrollTanimList(x, update = true) {
-            this.tanimListScroll = clamp(this.tanimListScroll + x, 0, this.tanimTree.length - floor((this.canvasHeight - 30 - 24 - this.layerBarHeight - 200 - 50)
+            this.tanimListScroll = clamp(this.tanimListScroll + x, 0, this.tanimTree.length - floor((this.canvasHeight - 30 - 24 - this.layerBarHeight - 240 - 50)
                 / 24) + 1);
         }
         scrollLayerList(x) {
@@ -2636,7 +2637,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                             return this.alignBezier(left, mid, right, handleType, "left");
                         }
                     }
-                    if (isHasLeftHandle && right) {
+                    if (isHasRightHandle && right) {
                         if (cxRight < 0 || right.x - mid.x < cxRight) {
                             cxRight = clamp(cxRight, 0, right.x - mid.x);
                             mid.setParam("bezierCX1", cxRight);
@@ -2852,17 +2853,11 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
             y += 20;
             kuis.push(new KUI(5, 0, y, width, { text: "CQET_eKUITValue" }));
             if (typeof keyframe.y == "string") {
-                y += 20 + 8;
+                y += 20 + 5;
                 kuis.push(new KUI(2, 0, y, width, { text: "CQET_eKUIStringKeyframeSelect" }));
                 return;
             }
-            if ((idx0 >= 0 && !this.timelines[0]?.keyframes[idx0 + 1]) ||
-                (idx1 >= 0 && !this.timelines[1]?.keyframes[idx1 + 1])) {
-                y += 20 + 8;
-                kuis.push(new KUI(2, 0, y, width, { text: "CQET_eKUILastSelect" }));
-                return;
-            }
-            y += 20 + 8;
+            y += 20 + 5;
             kuis.push(new KUI(6, 0, y, { w: width, h: 20 + 6 }, { interType: keyframe.interType, text: "CQET_eKUIInterType" }));
             y += 6;
             if (this.kuiState == 1) {
@@ -2879,7 +2874,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                 }
             }
             else {
-                y += 4;
+                y += 3;
                 switch (keyframe.interType) {
                     case "power":
                         y += 20;
@@ -2926,7 +2921,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                     case "elastic":
                     case "back":
                     case "bounce":
-                        y += 20 + 8;
+                        y += 20 + 5;
                         kuis.push(new KUI(1, 0, y, width, { text: "CQET_eKUIEaseType" }));
                         y += 20;
                         kuis.push(new KUI(10, 0, y, radioWidth, { paramType: "easeType", paramValue: "easeIn" }));
@@ -2934,15 +2929,17 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                         kuis.push(new KUI(10, 2 * radioStep, y, radioWidth, { paramType: "easeType", paramValue: "easeInOut" }));
                         kuis.push(new KUI(10, 3 * radioStep, y, radioWidth, { paramType: "easeType", paramValue: "easeOutIn" }));
                         break;
-                    case "bezier":
-                        y += 20 + 8;
-                        kuis.push(new KUI(1, 0, y, width, { text: "CQET_eKUIBezierHandleType" }));
-                        y += 20;
-                        kuis.push(new KUI(10, 3 * radioStep, y, radioWidth, { paramType: "bezierHandleType", paramValue: "auto" }));
-                        kuis.push(new KUI(10, 0, y, radioWidth, { paramType: "bezierHandleType", paramValue: "aligned" }));
-                        kuis.push(new KUI(10, radioStep, y, radioWidth, { paramType: "bezierHandleType", paramValue: "free" }));
-                        kuis.push(new KUI(10, 2 * radioStep, y, radioWidth, { paramType: "bezierHandleType", paramValue: "vector" }));
-                        break;
+                }
+                if (keyframe.interType == "bezier" ||
+                    this.timelines[0]?.keyframes[idx0 - 1]?.interType == "bezier" ||
+                    this.timelines[1]?.keyframes[idx1 - 1]?.interType == "bezier") {
+                    y += 20 + 5;
+                    kuis.push(new KUI(1, 0, y, width, { text: "CQET_eKUIBezierHandleType" }));
+                    y += 20;
+                    kuis.push(new KUI(10, 3 * radioStep, y, radioWidth, { paramType: "bezierHandleType", paramValue: "auto" }));
+                    kuis.push(new KUI(10, 0, y, radioWidth, { paramType: "bezierHandleType", paramValue: "aligned" }));
+                    kuis.push(new KUI(10, radioStep, y, radioWidth, { paramType: "bezierHandleType", paramValue: "free" }));
+                    kuis.push(new KUI(10, 2 * radioStep, y, radioWidth, { paramType: "bezierHandleType", paramValue: "vector" }));
                 }
             }
         }
@@ -3008,7 +3005,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                 }
                 else if (this.canvasWidth - this.rightBarWidth < this.mouseX && this.mouseX < this.canvasWidth - 4 &&
                     this.mouseY < this.canvasHeight - 50) {
-                    if (abs(this.canvasHeight - 50 - 200 - this.layerBarHeight - this.mouseY) <= 3) {
+                    if (abs(this.canvasHeight - 50 - 240 - this.layerBarHeight - this.mouseY) <= 3) {
                         this.cursor = "ns-resize";
                         this.hover = ["innerBorder", "layer"];
                     }
@@ -3018,7 +3015,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                         this.hover = ["newTanim"];
                     }
                     else if (30 + 24 < this.mouseY &&
-                        this.mouseY < this.canvasHeight - 50 - 200 - this.layerBarHeight - 5) {
+                        this.mouseY < this.canvasHeight - 50 - 240 - this.layerBarHeight - 5) {
                         if (this.mouseX >= this.canvasWidth - 20) {
                             this.hover = ["tanimScroll"];
                         }
@@ -3037,14 +3034,14 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                             }
                         }
                     }
-                    else if (this.canvasHeight - 50 - 200 - this.layerBarHeight + 24 < this.mouseY &&
-                        this.mouseY < this.canvasHeight - 50 - 200) {
+                    else if (this.canvasHeight - 50 - 240 - this.layerBarHeight + 24 < this.mouseY &&
+                        this.mouseY < this.canvasHeight - 50 - 240) {
                         if (this.mouseX >= this.canvasWidth - 20) {
                             this.hover = ["layerScroll"];
                         }
                         else {
                             this.hover = ["layerList"];
-                            let treeIndex = floor((this.mouseY - (this.canvasHeight - 50 - 200 - this.layerBarHeight + 24)) / 24 + this.layerListScroll);
+                            let treeIndex = floor((this.mouseY - (this.canvasHeight - 50 - 240 - this.layerBarHeight + 24)) / 24 + this.layerListScroll);
                             if (0 <= treeIndex && treeIndex < this.layerTree.length) {
                                 this.cursor = "pointer";
                                 this.hover.push(treeIndex);
@@ -3057,7 +3054,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                             }
                         }
                     }
-                    else if (this.canvasHeight - 50 - 200 < this.mouseY &&
+                    else if (this.canvasHeight - 50 - 240 < this.mouseY &&
                         this.mouseY < this.canvasHeight - 50) {
                         this.hover = ["keyframeBar"];
                         for (let kui of this.kuis) {
@@ -3066,7 +3063,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                                 continue;
                             let x1 = this.canvasWidth - this.rightBarWidth + 10 + x;
                             let x2 = x1 + w;
-                            let y1 = this.canvasHeight - 50 - 200 + y;
+                            let y1 = this.canvasHeight - 50 - 240 + y;
                             let y2 = y1 + h;
                             if (x1 - 1 <= this.mouseX && this.mouseX <= x2 + 1 && y1 - 1 <= this.mouseY && this.mouseY <= y2 + 1) {
                                 this.hover.push(type);
@@ -3682,6 +3679,12 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                             this.kuiState = 0;
                             let interType = hover[2];
                             let newKeyframe = new Keyframe(keyframe.x, keyframe.y, interType);
+                            let easeType = keyframe.params?.["easeType"];
+                            if (easeType)
+                                newKeyframe.setParam("easeType", easeType);
+                            let bezierHandleType = keyframe.params?.["bezierHandleType"];
+                            if (bezierHandleType)
+                                newKeyframe.setParam("bezierHandleType", bezierHandleType);
                             this.commandStack.PushAndDo(new EditAKeyframeCommand(this, timeline, keyframe, newKeyframe));
                         }
                         break;
@@ -3831,7 +3834,17 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                                 break;
                             let leftKeyframe = timeline.findLeftKeyframe(this.focusTime);
                             let keyframe = new Keyframe(this.focusTime, timeline.getTValueByFrame(this.focusTime), leftKeyframe?.interType ?? "linear");
+                            let easeType = leftKeyframe?.params?.["easeType"];
+                            if (easeType)
+                                keyframe.setParam("easeType", easeType);
+                            let bezierHandleType = leftKeyframe?.params?.["bezierHandleType"];
+                            if (bezierHandleType)
+                                keyframe.setParam("bezierHandleType", bezierHandleType);
                             this.commandStack.PushAndDo(new AddKeyframesCommand(this, this.tanim, new TKPair(timeline, keyframe)));
+                            if (keyframe.interType == "bezier") {
+                                let idx = timeline.keyframes.indexOf(keyframe);
+                                this.alignBezier(timeline.keyframes[idx - 1] ?? null, keyframe, timeline.keyframes[idx + 1] ?? null, "auto");
+                            }
                         }
                         break;
                     case 4:
@@ -3887,7 +3900,17 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                                 let tValue = timeline.getTValueByFrame(time);
                                 let leftKeyframe = timeline.findLeftKeyframe(time);
                                 let keyframe = new Keyframe(time, tValue, leftKeyframe?.interType ?? "linear");
+                                let easeType = leftKeyframe?.params?.["easeType"];
+                                if (easeType)
+                                    keyframe.setParam("easeType", easeType);
+                                let bezierHandleType = leftKeyframe?.params?.["bezierHandleType"];
+                                if (bezierHandleType)
+                                    keyframe.setParam("bezierHandleType", bezierHandleType);
                                 this.commandStack.PushAndDo(new AddKeyframesCommand(this, this.tanim, new TKPair(timeline, keyframe)));
+                                if (keyframe.interType == "bezier") {
+                                    let idx = timeline.keyframes.indexOf(keyframe);
+                                    this.alignBezier(timeline.keyframes[idx - 1] ?? null, keyframe, timeline.keyframes[idx + 1] ?? null, "auto");
+                                }
                                 if (event?.shiftKey) {
                                     this.commandStack.PushAndDo(new SelectKeyframesCommand(this, ...this.selectedKeyframes, keyframe));
                                 }
@@ -4466,7 +4489,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
             }
             else if (this.mouseDragType == 8) {
                 mouseEvent?.preventDefault();
-                this.layerBarHeight = clamp(this.mouseDragHeight + this.mouseDragClientY - this.mouseClientY, 70, this.canvasHeight - 50 - 200 - 130 - 30);
+                this.layerBarHeight = clamp(this.mouseDragHeight + this.mouseDragClientY - this.mouseClientY, 70, this.canvasHeight - 50 - 240 - 130 - 30);
                 saveData(false);
             }
             else if (this.mouseDragType == 11) {
@@ -4694,12 +4717,12 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                 }
                 if (this.mouseDragType == 3 || this.mouseDragType == 4) {
                     mouseEvent?.preventDefault();
-                    this.height = clamp(this.mouseDragHeight + this.mouseClientY - this.mouseDragClientY, 30 + max(120 + 50 + 90, 200 + 70 + 130) + 50, window.innerHeight - this.top - 5);
+                    this.height = clamp(this.mouseDragHeight + this.mouseClientY - this.mouseDragClientY, 30 + max(120 + 50 + 90, 240 + 70 + 130) + 50, window.innerHeight - this.top - 5);
                     let d = (30 + 120 + 50 + this.timelineBarHeight + 50) - this.canvasHeight;
                     if (d > 0) {
                         this.timelineBarHeight -= d;
                     }
-                    d = (30 + 200 + this.layerBarHeight + 130 + 50) - this.canvasHeight;
+                    d = (30 + 240 + this.layerBarHeight + 130 + 50) - this.canvasHeight;
                     if (d > 0) {
                         this.layerBarHeight -= d;
                     }
@@ -4723,10 +4746,10 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                     this.drawControlBar(this.leftBarWidth, this.canvasHeight - 50 - this.timelineBarHeight - 50, this.canvasWidth - this.rightBarWidth, this.canvasHeight - 50 - this.timelineBarHeight, this.mouseDragType == 0 ? 1 : 0);
                     this.drawLeftBar(0, 30, this.leftBarWidth, this.canvasHeight - 50);
                     this.drawRightBar(this.canvasWidth - this.rightBarWidth, 30, this.canvasWidth, this.canvasHeight - 50);
-                    this.drawTanimList("tanimList", this.canvasWidth - this.rightBarWidth + 1, 30, this.canvasWidth, this.canvasHeight - 50 - 200 - this.layerBarHeight, [0, 9].includes(this.mouseDragType) ? 1 : 0, this.tanimListScroll);
+                    this.drawTanimList("tanimList", this.canvasWidth - this.rightBarWidth + 1, 30, this.canvasWidth, this.canvasHeight - 50 - 240 - this.layerBarHeight, [0, 9].includes(this.mouseDragType) ? 1 : 0, this.tanimListScroll);
                     this.drawTanimListButton(1, this.canvasWidth - 20 - 24 / 2, 30 + 24 / 2, 24, 24, this.hover[0] == "newTanim" && this.mouseDragType == 0 ? 1 : 0);
-                    this.drawTanimList("layerList", this.canvasWidth - this.rightBarWidth + 1, this.canvasHeight - 50 - 200 - this.layerBarHeight, this.canvasWidth, this.canvasHeight - 50 - 200, [0, 9, 10].includes(this.mouseDragType) ? 1 : 0, this.layerListScroll);
-                    this.drawKeyframeBar(this.canvasWidth - this.rightBarWidth + 1, this.canvasHeight - 50 - 200, this.canvasWidth, this.canvasHeight - 50);
+                    this.drawTanimList("layerList", this.canvasWidth - this.rightBarWidth + 1, this.canvasHeight - 50 - 240 - this.layerBarHeight, this.canvasWidth, this.canvasHeight - 50 - 240, [0, 9, 10].includes(this.mouseDragType) ? 1 : 0, this.layerListScroll);
+                    this.drawKeyframeBar(this.canvasWidth - this.rightBarWidth + 1, this.canvasHeight - 50 - 240, this.canvasWidth, this.canvasHeight - 50);
                     this.drawHintBar(this.canvasHeight, this.canvasWidth, 50);
                 }
                 this.drawHeader(this.canvasWidth, 30);
@@ -5233,15 +5256,70 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
             let drawTValueCurve = (timeline) => {
                 let tValueType = timeline.tValueType;
                 ctx.beginPath();
-                for (x = x1; x < x2; x += step) {
-                    let [time,] = this.canvasTotimelinePosition(x, 0);
-                    let tValue = safeTValue(timeline.getTValueByFrame(time), tValueType);
-                    let y = max(this.timelineToCanvasPosition(0, tValue)[1], y1);
-                    if (x == x1) {
-                        ctx.moveTo(x, y);
-                    }
-                    else {
+                for (let i = -1; i < timeline.keyframes.length; i++) {
+                    let keyframe = timeline.keyframes[i];
+                    let rightKeyframe = timeline.keyframes[i + 1];
+                    let tValue;
+                    if (!keyframe) {
+                        if (!rightKeyframe) {
+                            let y = this.timelineToCanvasPosition(0, timeline.getTValueByFrame(0))[1];
+                            ctx.moveTo(x1, y);
+                            ctx.lineTo(x2, y);
+                            break;
+                        }
+                        let [x, y] = this.timelineToCanvasPosition(rightKeyframe.x, rightKeyframe.y);
+                        if (x < x1)
+                            continue;
+                        ctx.moveTo(x1, y);
                         ctx.lineTo(x, y);
+                        continue;
+                    }
+                    if (!rightKeyframe) {
+                        if (!keyframe)
+                            break;
+                        let [x, y] = this.timelineToCanvasPosition(keyframe.x, keyframe.y);
+                        if (x > x2)
+                            break;
+                        ctx.moveTo(x, y);
+                        ctx.lineTo(x2, y);
+                        break;
+                    }
+                    let [xRight, yRight] = this.timelineToCanvasPosition(rightKeyframe.x, rightKeyframe.y);
+                    if (xRight < x1)
+                        continue;
+                    let [xLeft, yLeft] = this.timelineToCanvasPosition(keyframe.x, keyframe.y);
+                    if (xLeft > x2)
+                        break;
+                    if (keyframe.interType == "const" || typeof keyframe.y == "string" || typeof rightKeyframe.y == "string") {
+                        ctx.moveTo(xLeft, yLeft);
+                        ctx.lineTo(xRight, yLeft);
+                        continue;
+                    }
+                    switch (keyframe.interType) {
+                        case "linear":
+                            ctx.moveTo(xLeft, yLeft);
+                            ctx.lineTo(xRight, yRight);
+                            break;
+                        case "bezier":
+                            let cx1 = keyframe.getParam("bezierCX1") + keyframe.x;
+                            let cy1 = keyframe.getParam("bezierCY1") + keyframe.y;
+                            let cx2 = keyframe.getParam("bezierCX2") + rightKeyframe.x;
+                            let cy2 = keyframe.getParam("bezierCY2") + rightKeyframe.y;
+                            let [cxLeft, cyLeft] = this.timelineToCanvasPosition(cx1, cy1);
+                            let [cxRight, cyRight] = this.timelineToCanvasPosition(cx2, cy2);
+                            ctx.moveTo(xLeft, yLeft);
+                            ctx.bezierCurveTo(cxLeft, cyLeft, cxRight, cyRight, xRight, yRight);
+                            break;
+                        default:
+                            ctx.moveTo(xLeft, yLeft);
+                            for (let x = ceil(xLeft); x <= xRight; x++) {
+                                let time = this.canvasTotimelinePosition(x, 0)[0];
+                                let tValue = Keyframe.Ease(time, keyframe, rightKeyframe);
+                                let y = this.timelineToCanvasPosition(0, tValue)[1];
+                                if (x > x2)
+                                    break;
+                                ctx.lineTo(x, clamp(y, y1, y2));
+                            }
                     }
                 }
                 ctx.lineWidth = 5;
@@ -5285,7 +5363,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                             continue;
                         let isHoveredThisKeyframe = isHoveredThisTimeline &&
                             this.hoveredHandle?.keyframe == handleInfo.keyframe ||
-                            this.mouseDragHandle?.keyframe == handleInfo.keyframe;
+                            (this.mouseDragType == 14 && this.mouseDragHandle?.keyframe == handleInfo.keyframe);
                         let hoveredHandleType = (this.mouseDragType == 14 && this.mouseDragHandle?.type) || this.hoveredHandle?.type;
                         ctx.beginPath();
                         ctx.lineWidth = 2;
@@ -5342,7 +5420,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                             if (cx1 + 10 > tx1 && cx1 - 10 < tx2 && cy1 + 10 > ty1 && cy1 - 10 < ty2 && handleType != "vector")
                                 this.drawKeyframeHandle(cx1, cy1, isHoveredThisKeyframe && hoveredHandleType == "bezierC1" ? "hover" : "default", handleColor, handleHoverColor, handleType != "auto");
                             if (cx2 + 10 > tx1 && cx2 - 10 < tx2 && cy2 + 10 > ty1 && cy2 - 10 < ty2 && rightHandleType != "vector")
-                                this.drawKeyframeHandle(cx2, cy2, isHoveredThisKeyframe && hoveredHandleType == "bezierC2" ? "hover" : "default", handleColor, handleHoverColor, handleType != "auto");
+                                this.drawKeyframeHandle(cx2, cy2, isHoveredThisKeyframe && hoveredHandleType == "bezierC2" ? "hover" : "default", handleColor, handleHoverColor, rightHandleType != "auto");
                         }
                     }
                 ctx.restore();
@@ -5523,8 +5601,8 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                     let cy = round(this.stageToCanvasPosition(0, y, previewCenterX, previewCenterY)[1]);
                     if (y1 < cy && cy < y2) {
                         if (w) {
-                            let cx1 = round(this.stageToCanvasPosition(-w, 0, previewCenterX, previewCenterY)[0]);
-                            let cx2 = round(this.stageToCanvasPosition(w, 0, previewCenterX, previewCenterY)[0]);
+                            let cx1 = clamp(round(this.stageToCanvasPosition(-w, 0, previewCenterX, previewCenterY)[0]), x1, x2);
+                            let cx2 = clamp(round(this.stageToCanvasPosition(w, 0, previewCenterX, previewCenterY)[0]), x1, x2);
                             ctx.fillRect(cx1, cy, cx2 - cx1, 1);
                         }
                         else {
@@ -5536,8 +5614,8 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                     let cx = round(this.stageToCanvasPosition(x, 0, previewCenterX, previewCenterY)[0]);
                     if (x1 < cx && cx < x2) {
                         if (h) {
-                            let cy1 = round(this.stageToCanvasPosition(0, -h, previewCenterX, previewCenterY)[1]);
-                            let cy2 = round(this.stageToCanvasPosition(0, h, previewCenterX, previewCenterY)[1]);
+                            let cy1 = clamp(round(this.stageToCanvasPosition(0, -h, previewCenterX, previewCenterY)[1]), y1, y2);
+                            let cy2 = clamp(round(this.stageToCanvasPosition(0, h, previewCenterX, previewCenterY)[1]), y1, y2);
                             ctx.fillRect(cx, cy1, 1, cy2 - cy1);
                         }
                         else {
