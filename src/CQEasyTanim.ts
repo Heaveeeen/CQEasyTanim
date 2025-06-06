@@ -787,6 +787,8 @@ function getSnapshotValue(snapshot: Snapshot, tValueType: string): TValue {
 const enum SavedataMarks {
     head = "!!!CQ_EASY_TANIM_SAVE_DATA_HEAD_DONT_EDIT_THIS!!!",
     tail = "!!!CQ_EASY_TANIM_SAVE_DATA_TAIL_DONT_EDIT_THIS!!!",
+    varNameHead = "!!!CQ_EASY_TANIM_SAVE_DATA_VAR_NAME_HEAD_DONT_EDIT_THIS!!!",
+    varNameTail = "!!!CQ_EASY_TANIM_SAVE_DATA_VAR_NAME_TAIL_DONT_EDIT_THIS!!!",
 }
 
 type EaseParamType = "easeType" | "bezierHandleType" |
@@ -1600,55 +1602,37 @@ function tValueTypeToHSL(tValueType: string, saturation: number, lightness: numb
 
 // #region 存储
 
-let TheSavedataVariableName = "__Easy_Tanim_Savedate__";
+let TheSavedataVarName = "__Easy_Tanim_Savedate__";
 
-function findSavedataComment(): ScratchComment | null {
-    try {
-        let comments = runtime.targets[0].comments;
+function findVarNameComment(): ScratchComment | null {
+    let comments = runtime.targets[0].comments;
 
-        for (let id in comments) {
-            let txt = comments[id].text;
-            if (typeof txt != "string") {
-                throw new Error();
-            }
-            let headIdx = txt.indexOf(SavedataMarks.head);
-            if (headIdx >= 0) {
-                return comments[id];
-            }
+    for (let id in comments) {
+        let txt = comments[id].text;
+        if (typeof txt != "string") continue;
+        let headIdx = txt.indexOf(SavedataMarks.varNameHead);
+        if (headIdx >= 0) {
+            return comments[id];
         }
-        return null;
-    } catch (error) {
-        Warn("尝试寻找存有存储数据的注释时，捕获到错误。", error);
-        return null;
     }
+    return null;
 }
 
-/** 从注释中寻找第一份识别到的存储数据，返回JSON字符串 */
-function getJSONSrcFromComment(): string | null {
-    let JSONSrc = null;
-    try {
-        let comments = runtime.targets[0].comments;
+/** 寻找存储数据的使用的变量 */
+function findSavedataVariable(): Variable | null {
+    let variables = runtime.targets[0].variables;
 
-        for (let id in comments) {
-            let txt = comments[id].text;
-            if (typeof txt != "string") {
-                throw new Error();
-            }
-            let headIdx = txt.indexOf(SavedataMarks.head);
-            if (headIdx >= 0) {
-                let tailIdx = txt.indexOf(SavedataMarks.tail);
-                if (tailIdx == -1) {
-                    tailIdx = txt.length;
-                };
-                JSONSrc = txt.substring(headIdx + SavedataMarks.head.length, tailIdx);
-                break;
-            }
-        }
-        return JSONSrc;
-    } catch (error) {
-        Warn("尝试从注释中获取存储数据时，捕获到错误。", error);
-        return JSONSrc;
+    for (let id in variables) {
+        let variable = variables[id];
+        if (variable.name == TheSavedataVarName) return variable;
     }
+    return null;
+}
+
+/** 从变量中寻找存储数据，返回JSON字符串 */
+function getJSONSrcFromVariables(): string | null {
+    let value = findSavedataVariable()?.value;
+    return typeof value == "string" ? value : null;
 }
 
 /** 从JSON字符串解析存储数据 */
@@ -1688,15 +1672,42 @@ function getJSONSrcFromSavedata(tanimManager: TanimManager, tanimEditorConfigs: 
     return JSONSrc;
 }
 
-/** 将一份字符串形式的数据存储到注释中 */
-function saveJSONSrcToComment(JSONSrc: string, emitProjectChanged: boolean = true) {
+/** 将一份字符串形式的数据存储到变量中 */
+function saveJSONSrcToVariable(JSONSrc: string, emitProjectChanged: boolean = true) {
+    let variable = findSavedataVariable();
+    if (!variable) {
+        variable = runtime.createNewGlobalVariable(TheSavedataVarName);
+    }
+    variable.value = JSONSrc;
+    if (emitProjectChanged) runtime.emit("PROJECT_CHANGED");
+}
+
+function changeSavedateVarName(varName: string) {
+    let varNameComment = findVarNameComment();
+    if (varNameComment == null) {
+        runtime.targets[0].createComment(
+            getSafeCommentID("EasyTanim_SaveDataVarName"), null,
+            `${SavedataMarks.varNameHead}${TheSavedataVarName}${SavedataMarks.varNameTail}`,
+            500, 0, 200, 200, false
+        );
+        varNameComment = findVarNameComment() as ScratchComment;
+    }
+    TheSavedataVarName = varName;
+    varNameComment.text = `此处是“时间轴动画”扩展的存储数据。可以移动、缩放或折叠此注释，但不要手动修改此注释的内容，除非你知道你在做什么。
+Stored data for the Easy Tanim extension. You can move, resize, and minimize this comment, but don't edit it by hand unless you know what you are doing.
+${SavedataMarks.varNameHead}${TheSavedataVarName}${SavedataMarks.varNameTail}`;
+    saveData();
+    runtime.emit("PROJECT_CHANGED");
+}
+
+/*{
     let d = new Date();
     let dateStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`;
     let commentStr = `此处是“时间轴动画”扩展的存储数据。可以移动、缩放或折叠此注释，但不要手动修改此注释的内容，除非你知道你在做什么。
 Stored data for the Easy Tanim extension. You can move, resize, and minimize this comment, but don't edit it by hand unless you know what you are doing.
 ${dateStr}
 ${SavedataMarks.head}${JSONSrc}${SavedataMarks.tail}`;
-    let comment = findSavedataComment();
+    let comment = findVarNameComment();
     if (comment) {
         comment.text = commentStr;
     } else {
@@ -1704,16 +1715,28 @@ ${SavedataMarks.head}${JSONSrc}${SavedataMarks.tail}`;
         Warn("将动画数据保存到注释中时，没有找到已保存的动画数据，已创建新注释。");
     }
     if (emitProjectChanged) runtime.emit("PROJECT_CHANGED");
-}
+}*/
 
 /** 将动画数据保存到注释中 */
 function saveData(emitProjectChanged: boolean = true) {
-    saveJSONSrcToComment(getJSONSrcFromSavedata(TheTanimManager, TheTanimEditorConfigs), emitProjectChanged);
+    saveJSONSrcToVariable(getJSONSrcFromSavedata(TheTanimManager, TheTanimEditorConfigs), emitProjectChanged);
 }
 
 function autoLoadData(isAlertError: boolean) {
+    let varNameComment = findVarNameComment();
+    if (varNameComment !== null) {
+        let txt = varNameComment.text;
+        let headIdx = txt.indexOf(SavedataMarks.varNameHead);
+        if (headIdx >= 0) {
+            let tailIdx = txt.indexOf(SavedataMarks.varNameTail);
+            if (tailIdx == -1) {
+                tailIdx = txt.length;
+            };
+            TheSavedataVarName = txt.substring(headIdx + SavedataMarks.varNameHead.length, tailIdx);
+        }
+    }
 
-    let JSONSrc = getJSONSrcFromComment();
+    let JSONSrc = getJSONSrcFromVariables();
     let { obj } = getSavedataFromJSONSrc(JSONSrc);
 
     let parsedTanimEditorConfigs = TanimEditorConfigs.FromObject(obj?.tanimEditorConfigs);
@@ -1724,24 +1747,18 @@ function autoLoadData(isAlertError: boolean) {
     // 读取出错
     if (parsedTanimManager == null) {
         if (!isAlertError) return;
+        console.log(`时间轴动画：读取动画存储数据失败，已重置动画数据。此条日志的下方备份了旧的动画数据，请妥善保管，并寻求他人的帮助。
 
-        let d = new Date();
-        let dateStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`;
-        runtime.targets[0].createComment(getSafeCommentID("_EasyTanimBackup"), null, 
-`⚠️⚠️⚠️时间轴动画 错误⚠️⚠️⚠️
+Easy Tanim: Fail to load stored data. Data has been reset. A backup of the old data has been preserved below this log. Please keep it safe and contact others for help.
+
+${JSONSrc}`);
+
+        window.alert(`⚠️⚠️⚠️时间轴动画 错误⚠️⚠️⚠️
 ⚠️⚠️⚠️EASY TANIM ERROR⚠️⚠️⚠️
-${dateStr}
-无法从注释中读取存储数据，已重置动画数据。检查浏览器开发者工具以获取更多信息。
-此条注释下方备份了旧的动画数据，请妥善保管，并联系他人以寻求帮助。
-Failed to load stored data from comment. Data has been reset. Check the browser's developer tools for more information.
-A backup of the old data has been preserved below this comment. Please keep it safe and contact others for help.
 
-${JSONSrc}`,
-0, 0, 600, 800, false);
-        Warn("读取动画存储数据失败，已重置动画数据。在背景中生成了一条新注释，备份了旧的动画数据源码。");
-        window.alert(`时间轴动画 错误：读取动画存储数据失败，已重置动画数据。在背景中生成了一条新注释，请检查它以获取更多信息和旧数据的备份。
+无法读取存储数据，已重置动画数据。请按 Ctrl + Shift + i 打开浏览器开发者工具以获取更多信息。
 
-EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comment in Background, please check it for more information and backup of old data.`);
+Failed to load stored data from comment. Data has been reset. Press Ctrl + Shift + i to check the browser's developer tools for more information.`);
         return;
     }
     TheTanimManager = parsedTanimManager;
@@ -3119,7 +3136,7 @@ class TanimEditor {
         document.addEventListener("mouseup", ev => this.update({mouseEvent: ev}));
         document.addEventListener("dblclick", ev => this.update({mouseEvent: ev}));
 
-        document.addEventListener("wheel", ev => this.update({wheelEvent: ev}));
+        this.root.addEventListener("wheel", ev => this.update({wheelEvent: ev}), { passive: false, });
         
         document.addEventListener("keydown", ev => this.update({keyboardEvent: ev}));
         document.addEventListener("keyup", ev => this.update({keyboardEvent: ev}));

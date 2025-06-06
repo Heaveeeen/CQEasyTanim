@@ -1051,53 +1051,32 @@ Easy Tanim must run unsandboxed.`);
         }
         return alpha == 100 ? `hsl(${hue}, ${saturation}%, ${lightness}%)` : `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha}%)`;
     }
-    let TheSavedataVariableName = "__Easy_Tanim_Savedate__";
-    function findSavedataComment() {
-        try {
-            let comments = runtime.targets[0].comments;
-            for (let id in comments) {
-                let txt = comments[id].text;
-                if (typeof txt != "string") {
-                    throw new Error();
-                }
-                let headIdx = txt.indexOf("!!!CQ_EASY_TANIM_SAVE_DATA_HEAD_DONT_EDIT_THIS!!!");
-                if (headIdx >= 0) {
-                    return comments[id];
-                }
+    let TheSavedataVarName = "__Easy_Tanim_Savedate__";
+    function findVarNameComment() {
+        let comments = runtime.targets[0].comments;
+        for (let id in comments) {
+            let txt = comments[id].text;
+            if (typeof txt != "string")
+                continue;
+            let headIdx = txt.indexOf("!!!CQ_EASY_TANIM_SAVE_DATA_VAR_NAME_HEAD_DONT_EDIT_THIS!!!");
+            if (headIdx >= 0) {
+                return comments[id];
             }
-            return null;
         }
-        catch (error) {
-            Warn("尝试寻找存有存储数据的注释时，捕获到错误。", error);
-            return null;
-        }
+        return null;
     }
-    function getJSONSrcFromComment() {
-        let JSONSrc = null;
-        try {
-            let comments = runtime.targets[0].comments;
-            for (let id in comments) {
-                let txt = comments[id].text;
-                if (typeof txt != "string") {
-                    throw new Error();
-                }
-                let headIdx = txt.indexOf("!!!CQ_EASY_TANIM_SAVE_DATA_HEAD_DONT_EDIT_THIS!!!");
-                if (headIdx >= 0) {
-                    let tailIdx = txt.indexOf("!!!CQ_EASY_TANIM_SAVE_DATA_TAIL_DONT_EDIT_THIS!!!");
-                    if (tailIdx == -1) {
-                        tailIdx = txt.length;
-                    }
-                    ;
-                    JSONSrc = txt.substring(headIdx + "!!!CQ_EASY_TANIM_SAVE_DATA_HEAD_DONT_EDIT_THIS!!!".length, tailIdx);
-                    break;
-                }
-            }
-            return JSONSrc;
+    function findSavedataVariable() {
+        let variables = runtime.targets[0].variables;
+        for (let id in variables) {
+            let variable = variables[id];
+            if (variable.name == TheSavedataVarName)
+                return variable;
         }
-        catch (error) {
-            Warn("尝试从注释中获取存储数据时，捕获到错误。", error);
-            return JSONSrc;
-        }
+        return null;
+    }
+    function getJSONSrcFromVariables() {
+        let value = findSavedataVariable()?.value;
+        return typeof value == "string" ? value : null;
     }
     function getSavedataFromJSONSrc(JSONSrc) {
         try {
@@ -1134,29 +1113,45 @@ Easy Tanim must run unsandboxed.`);
         });
         return JSONSrc;
     }
-    function saveJSONSrcToComment(JSONSrc, emitProjectChanged = true) {
-        let d = new Date();
-        let dateStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`;
-        let commentStr = `此处是“时间轴动画”扩展的存储数据。可以移动、缩放或折叠此注释，但不要手动修改此注释的内容，除非你知道你在做什么。
-Stored data for the Easy Tanim extension. You can move, resize, and minimize this comment, but don't edit it by hand unless you know what you are doing.
-${dateStr}
-${"!!!CQ_EASY_TANIM_SAVE_DATA_HEAD_DONT_EDIT_THIS!!!"}${JSONSrc}${"!!!CQ_EASY_TANIM_SAVE_DATA_TAIL_DONT_EDIT_THIS!!!"}`;
-        let comment = findSavedataComment();
-        if (comment) {
-            comment.text = commentStr;
+    function saveJSONSrcToVariable(JSONSrc, emitProjectChanged = true) {
+        let variable = findSavedataVariable();
+        if (!variable) {
+            variable = runtime.createNewGlobalVariable(TheSavedataVarName);
         }
-        else {
-            runtime.targets[0].createComment(getSafeCommentID("_EasyTanimBackup"), null, commentStr, 500, 0, 450, 300, false);
-            Warn("将动画数据保存到注释中时，没有找到已保存的动画数据，已创建新注释。");
-        }
+        variable.value = JSONSrc;
         if (emitProjectChanged)
             runtime.emit("PROJECT_CHANGED");
     }
+    function changeSavedateVarName(varName) {
+        let varNameComment = findVarNameComment();
+        if (varNameComment == null) {
+            runtime.targets[0].createComment(getSafeCommentID("EasyTanim_SaveDataVarName"), null, `${"!!!CQ_EASY_TANIM_SAVE_DATA_VAR_NAME_HEAD_DONT_EDIT_THIS!!!"}${TheSavedataVarName}${"!!!CQ_EASY_TANIM_SAVE_DATA_VAR_NAME_TAIL_DONT_EDIT_THIS!!!"}`, 500, 0, 200, 200, false);
+            varNameComment = findVarNameComment();
+        }
+        TheSavedataVarName = varName;
+        varNameComment.text = `此处是“时间轴动画”扩展的存储数据。可以移动、缩放或折叠此注释，但不要手动修改此注释的内容，除非你知道你在做什么。
+Stored data for the Easy Tanim extension. You can move, resize, and minimize this comment, but don't edit it by hand unless you know what you are doing.
+${"!!!CQ_EASY_TANIM_SAVE_DATA_VAR_NAME_HEAD_DONT_EDIT_THIS!!!"}${TheSavedataVarName}${"!!!CQ_EASY_TANIM_SAVE_DATA_VAR_NAME_TAIL_DONT_EDIT_THIS!!!"}`;
+        runtime.emit("PROJECT_CHANGED");
+    }
     function saveData(emitProjectChanged = true) {
-        saveJSONSrcToComment(getJSONSrcFromSavedata(TheTanimManager, TheTanimEditorConfigs), emitProjectChanged);
+        saveJSONSrcToVariable(getJSONSrcFromSavedata(TheTanimManager, TheTanimEditorConfigs), emitProjectChanged);
     }
     function autoLoadData(isAlertError) {
-        let JSONSrc = getJSONSrcFromComment();
+        let varNameComment = findVarNameComment();
+        if (varNameComment !== null) {
+            let txt = varNameComment.text;
+            let headIdx = txt.indexOf("!!!CQ_EASY_TANIM_SAVE_DATA_VAR_NAME_HEAD_DONT_EDIT_THIS!!!");
+            if (headIdx >= 0) {
+                let tailIdx = txt.indexOf("!!!CQ_EASY_TANIM_SAVE_DATA_VAR_NAME_TAIL_DONT_EDIT_THIS!!!");
+                if (tailIdx == -1) {
+                    tailIdx = txt.length;
+                }
+                ;
+                TheSavedataVarName = txt.substring(headIdx + "!!!CQ_EASY_TANIM_SAVE_DATA_VAR_NAME_HEAD_DONT_EDIT_THIS!!!".length, tailIdx);
+            }
+        }
+        let JSONSrc = getJSONSrcFromVariables();
         let { obj } = getSavedataFromJSONSrc(JSONSrc);
         let parsedTanimEditorConfigs = TanimEditorConfigs.FromObject(obj?.tanimEditorConfigs);
         if (parsedTanimEditorConfigs)
@@ -1165,21 +1160,17 @@ ${"!!!CQ_EASY_TANIM_SAVE_DATA_HEAD_DONT_EDIT_THIS!!!"}${JSONSrc}${"!!!CQ_EASY_TA
         if (parsedTanimManager == null) {
             if (!isAlertError)
                 return;
-            let d = new Date();
-            let dateStr = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()} ${d.getHours()}:${d.getMinutes()}:${d.getSeconds()}`;
-            runtime.targets[0].createComment(getSafeCommentID("_EasyTanimBackup"), null, `⚠️⚠️⚠️时间轴动画 错误⚠️⚠️⚠️
+            console.log(`时间轴动画：读取动画存储数据失败，已重置动画数据。此条日志的下方备份了旧的动画数据，请妥善保管，并寻求他人的帮助。
+
+Easy Tanim: Fail to load stored data. Data has been reset. A backup of the old data has been preserved below this log. Please keep it safe and contact others for help.
+
+${JSONSrc}`);
+            window.alert(`⚠️⚠️⚠️时间轴动画 错误⚠️⚠️⚠️
 ⚠️⚠️⚠️EASY TANIM ERROR⚠️⚠️⚠️
-${dateStr}
-无法从注释中读取存储数据，已重置动画数据。检查浏览器开发者工具以获取更多信息。
-此条注释下方备份了旧的动画数据，请妥善保管，并联系他人以寻求帮助。
-Failed to load stored data from comment. Data has been reset. Check the browser's developer tools for more information.
-A backup of the old data has been preserved below this comment. Please keep it safe and contact others for help.
 
-${JSONSrc}`, 0, 0, 600, 800, false);
-            Warn("读取动画存储数据失败，已重置动画数据。在背景中生成了一条新注释，备份了旧的动画数据源码。");
-            window.alert(`时间轴动画 错误：读取动画存储数据失败，已重置动画数据。在背景中生成了一条新注释，请检查它以获取更多信息和旧数据的备份。
+无法读取存储数据，已重置动画数据。请按 Ctrl + Shift + i 打开浏览器开发者工具以获取更多信息。
 
-EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comment in Background, please check it for more information and backup of old data.`);
+Failed to load stored data from comment. Data has been reset. Press Ctrl + Shift + i to check the browser's developer tools for more information.`);
             return;
         }
         TheTanimManager = parsedTanimManager;

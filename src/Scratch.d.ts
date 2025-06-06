@@ -242,6 +242,16 @@ declare const Scratch: {
             getEditingTarget(): RenderedTarget | null,
             stageWidth: number,
             stageHeight: number,
+            /**
+             * Create a new global variable avoiding conflicts with other variable names.
+             * @param {string} variableName The desired variable name for the new global variable.
+             * This can be turned into a fresh name as necessary.
+             * @param {string} optVarId An optional ID to use for the variable. A new one will be generated
+             * if a falsey value for this parameter is provided.
+             * @param {string} optVarType The type of the variable to create. Defaults to Variable.SCALAR_TYPE.
+             * @return {Variable} The new variable that was created.
+             */
+            createNewGlobalVariable(variableName: string, optVarId?: string, optVarType?: string): Variable
         },
     },
 
