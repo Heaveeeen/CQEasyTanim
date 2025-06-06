@@ -1051,6 +1051,7 @@ Easy Tanim must run unsandboxed.`);
         }
         return alpha == 100 ? `hsl(${hue}, ${saturation}%, ${lightness}%)` : `hsla(${hue}, ${saturation}%, ${lightness}%, ${alpha}%)`;
     }
+    let TheSavedataVariableName = "__Easy_Tanim_Savedate__";
     function findSavedataComment() {
         try {
             let comments = runtime.targets[0].comments;
@@ -4337,6 +4338,8 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
             let { mouseEvent, wheelEvent, keyboardEvent } = events ?? {};
             if (keyboardEvent?.repeat)
                 return;
+            if (wheelEvent)
+                wheelEvent.preventDefault();
             if (mouseEvent) {
                 this.mouseClientX = mouseEvent.clientX;
                 this.mouseClientY = mouseEvent.clientY;
@@ -6474,6 +6477,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
                     ctx.stroke();
                     this.drawKUIIconPoint(x - 7, y + 6, c1, c2);
                     this.drawKUIIconPoint(x + 7, y, c1, c2);
+                    ctx.beginPath();
                     ctx.arc(x - 2, y - 3, 2.5, 0, 2 * PI);
                     ctx.fillStyle = c2;
                     ctx.fill();
@@ -6618,7 +6622,7 @@ EASY TANIM ERROR: Fail to load stored data. Data has been reset. Created a comme
             let ctx = this.ctx;
             ctx.save();
             ctx.beginPath();
-            ctx.arc(x, y, 1, 0, 2 * PI);
+            ctx.arc(x, y, 1.5, 0, 2 * PI);
             ctx.fillStyle = c2;
             ctx.fill();
             ctx.strokeStyle = c1;

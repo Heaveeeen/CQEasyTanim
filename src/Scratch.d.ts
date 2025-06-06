@@ -72,11 +72,21 @@ declare interface RenderedTarget {
      */
     createComment(id: string, blockId: string | null, text: string, x: number, y: number, width: number, height: number, minimized: boolean): void,
     sprite: Sprite,
+    variables: {[key: string]: Variable},
 
     /** 经过简单测试得知，对于同一个角色的不同克隆体，这个函数返回同一个数组的引用 */
     getCostumes(): costume[],
     getCostumeIndexByName(name: string): number,
     getCurrentCostume(): costume,
+}
+
+declare interface Variable {
+    id: string,
+    name: string,
+    isCloud: boolean,
+    /** 简单测试得知，变量的 type 为 ""，列表的 type 为 "list" */
+    type: any,
+    value: any,
 }
 
 declare const Scratch: {

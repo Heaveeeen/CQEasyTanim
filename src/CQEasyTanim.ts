@@ -1600,6 +1600,8 @@ function tValueTypeToHSL(tValueType: string, saturation: number, lightness: numb
 
 // #region 存储
 
+let TheSavedataVariableName = "__Easy_Tanim_Savedate__";
+
 function findSavedataComment(): ScratchComment | null {
     try {
         let comments = runtime.targets[0].comments;
@@ -5655,6 +5657,7 @@ class TanimEditor {
         // 这里把几个参数分开。。。其实是想在类型推断上省事。。。
         let { mouseEvent, wheelEvent, keyboardEvent } = events ?? {};
         if (keyboardEvent?.repeat) return;
+        if (wheelEvent) wheelEvent.preventDefault();
         // 一个测速用的傻逼玩意
         /*if (keyboardEvent?.type == "keydown" && keyboardEvent?.key == "t" && this.tanim && this.timelines[0]) {
             let times = 60 * 500 * 10;// 60 帧，500个实体，每个实体采样10次（10种动画值）
@@ -8138,6 +8141,7 @@ class TanimEditor {
                 ctx.stroke();
                 this.drawKUIIconPoint(x - 7, y + 6, c1, c2);
                 this.drawKUIIconPoint(x + 7, y, c1, c2);
+                ctx.beginPath();
                 ctx.arc(x - 2, y - 3, 2.5, 0, 2 * PI);
                 ctx.fillStyle = c2;
                 ctx.fill();
@@ -8287,7 +8291,7 @@ class TanimEditor {
         ctx.save();
 
         ctx.beginPath();
-        ctx.arc(x, y, 1, 0, 2 * PI);
+        ctx.arc(x, y, 1.5, 0, 2 * PI);
         ctx.fillStyle = c2;
         ctx.fill();
         ctx.strokeStyle = c1;
